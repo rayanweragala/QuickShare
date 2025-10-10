@@ -1,5 +1,8 @@
 package com.localshare.backend.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.localshare.backend.model.Session;
 import com.localshare.backend.util.LoggerUtil;
 import org.springframework.context.annotation.Bean;
@@ -15,7 +18,15 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @Configuration
 public class RedisConfig {
     @Bean
-    public RedisTemplate<String, Session> sessionRedisTemplate(RedisConnectionFactory redisConnectionFactory){
+    public ObjectMapper objectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        return mapper;
+    }
+
+    @Bean
+    public RedisTemplate<String, Session> sessionRedisTemplate(RedisConnectionFactory redisConnectionFactory) {
         LoggerUtil.info(RedisConfig.class, "configuring redis template for session storage");
 
         RedisTemplate<String, Session> redisTemplate = new RedisTemplate<>();
@@ -25,7 +36,8 @@ public class RedisConfig {
         redisTemplate.setKeySerializer(serializer);
         redisTemplate.setHashKeySerializer(serializer);
 
-        Jackson2JsonRedisSerializer<Session> jsonRedisSerializer = new Jackson2JsonRedisSerializer<>(Session.class);
+        Jackson2JsonRedisSerializer<Session> jsonRedisSerializer =
+                new Jackson2JsonRedisSerializer<>(objectMapper(), Session.class);
         redisTemplate.setValueSerializer(jsonRedisSerializer);
         redisTemplate.setHashValueSerializer(jsonRedisSerializer);
 
