@@ -1,28 +1,31 @@
-import { io } from 'socket.io-client';
 import { logger } from '../utils/logger';
 
 /**
- * manages SocketIO connection and WebRTC signaling
+ * webSocket client for real-time signaling
  */
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 
   (() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname;
-     return `${protocol}//${host}`;
+    const port = window.location.port || (protocol === 'wss:' ? '443' : '80');
+    return `${protocol}//${host}:${port}`;
   })();
-class SocketService {
+
+class WebSocketService {
   constructor() {
-    this.socket = null;
+    this.ws = null;
     this.isConnected = false;
     this.sessionId = null;
     this.role = null;
     this.eventHandlers = new Map();
-    this.pendingHandlers = new Map(); 
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 5;
+    this.reconnectDelay = 1000;
   }
 
   /**
-   * connect to SocketIO server
+   * connect to WebSocket server
    */
   connect(sessionId, role) {
     return new Promise((resolve, reject) => {
@@ -30,137 +33,184 @@ class SocketService {
         this.sessionId = sessionId;
         this.role = role;
 
-        logger.info('Connecting to SocketIO server...', { sessionId, role });
+        const url = `${SOCKET_URL}/socket.io/?sessionId=${sessionId}&role=${role}`;
+        logger.info('Connecting to WebSocket server...', { sessionId, role, url });
 
-        this.socket = io(SOCKET_URL, {
-          path: '/socket.io',
-          query: {
-            sessionId,
-            role,
-          },
-          transports: ['websocket', 'polling'],
-          reconnection: true,
-          reconnectionAttempts: 5,
-          reconnectionDelay: 1000,
-        });
+        this.ws = new WebSocket(url);
 
-        this.pendingHandlers.forEach((handler, event) => {
-          logger.debug('Registering pending event handler:', event);
-          this.socket.on(event, handler);
-          this.eventHandlers.set(event, handler);
-        });
-        this.pendingHandlers.clear();
-
-        this.socket.on('connect', () => {
+        this.ws.onopen = () => {
           this.isConnected = true;
-          logger.success('SocketIO connected', this.socket.id);
+          this.reconnectAttempts = 0;
+          logger.success('WebSocket connected');
           resolve();
-        });
+        };
 
-        this.socket.on('connect_error', (error) => {
-          logger.error('SocketIO connection error:', error);
-          reject(error);
-        });
+        this.ws.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            const handler = this.eventHandlers.get(message.type);
+            if (handler) {
+              handler(message);
+            } else {
+              logger.dev('No handler for message type:', message.type);
+            }
+          } catch (e) {
+            logger.error('Error parsing WebSocket message:', e);
+          }
+        };
 
-        this.socket.on('disconnect', (reason) => {
+        this.ws.onerror = (error) => {
+          logger.error('WebSocket error:', error);
+          reject(new Error('WebSocket error'));
+        };
+
+        this.ws.onclose = () => {
           this.isConnected = false;
-          logger.warn('SocketIO disconnected:', reason);
-        });
-
-        this.socket.on('error', (error) => {
-          logger.error('SocketIO error:', error);
-        });
+          logger.warn('WebSocket disconnected');
+          this.attemptReconnect();
+        };
 
       } catch (error) {
-        logger.error('Failed to initialize SocketIO:', error);
+        logger.error('Failed to initialize WebSocket:', error);
         reject(error);
       }
     });
   }
 
   /**
-   * send ready signal (receiver tell sender ready)
+   * attempt to reconnect with exponential backoff
    */
-  sendReady(){
-    if(!this.socket || !this.isConnected){
-      logger.error('cannot send ready')
+  attemptReconnect() {
+    if (this.reconnectAttempts < this.maxReconnectAttempts && this.sessionId) {
+      this.reconnectAttempts++;
+      const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
+      logger.warn(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+      
+      setTimeout(() => {
+        this.connect(this.sessionId, this.role).catch(err => {
+          logger.error('Reconnection failed:', err);
+        });
+      }, delay);
     }
-    const message = {
-      sessionId : this.sessionId,
-      role: this.role
-    };
-    this.socket.emit('peer-ready',message);
   }
 
   /**
    * send WebRTC offer
    */
   sendOffer(offer) {
-    if (!this.socket || !this.isConnected) {
-      logger.error('Cannot send offer: Socket not connected');
+    if (!this.isConnected) {
+      logger.error('Cannot send offer: WebSocket not connected');
       return;
     }
 
     const message = {
       type: 'offer',
       sessionId: this.sessionId,
-      sdp: offer,
+      sdp: offer
     };
 
-    logger.info('Sending offer...', message);
-    this.socket.emit('offer', message);
+    logger.info('Sending offer...');
+    this.send(message);
   }
 
   /**
    * send WebRTC answer
    */
   sendAnswer(answer) {
-    if (!this.socket || !this.isConnected) {
-      logger.error('Cannot send answer: Socket not connected');
+    if (!this.isConnected) {
+      logger.error('Cannot send answer: WebSocket not connected');
       return;
     }
 
     const message = {
       type: 'answer',
       sessionId: this.sessionId,
-      sdp: answer,
+      sdp: answer
     };
 
-    logger.info('Sending answer...', message);
-    this.socket.emit('answer', message);
+    logger.info('Sending answer...');
+    this.send(message);
   }
 
   /**
    * send ICE candidate
    */
   sendIceCandidate(candidate) {
-    if (!this.socket || !this.isConnected) {
-      logger.error('Cannot send ICE candidate: Socket not connected');
+    if (!this.isConnected) {
+      logger.error('Cannot send ICE candidate: WebSocket not connected');
       return;
     }
 
     const message = {
       type: 'ice-candidate',
       sessionId: this.sessionId,
-      candidate: candidate,
+      candidate: candidate
     };
 
-    logger.debug('Sending ICE candidate...', candidate);
-    this.socket.emit('ice-candidate', message);
+    logger.debug('Sending ICE candidate...');
+    this.send(message);
+  }
+
+  /**
+   * send peer ready signal
+   */
+  sendReady() {
+    if (!this.isConnected) {
+      logger.error('Cannot send ready signal: WebSocket not connected');
+      return;
+    }
+
+    const message = {
+      type: 'peer-ready',
+      sessionId: this.sessionId
+    };
+
+    logger.info('Sending peer ready signal...');
+    this.send(message);
+  }
+
+  /**
+   * send transfer start notification
+   */
+  sendTransferStart(totalFiles) {
+    if (!this.isConnected) {
+      logger.error('Cannot send transfer start: WebSocket not connected');
+      return;
+    }
+
+    const message = {
+      type: 'transfer-start',
+      sessionId: this.sessionId,
+      totalFiles: totalFiles
+    };
+
+    logger.info('Sending transfer start...');
+    this.send(message);
+  }
+
+  /**
+   * send transfer complete notification
+   */
+  sendTransferComplete() {
+    if (!this.isConnected) {
+      logger.error('Cannot send transfer complete: WebSocket not connected');
+      return;
+    }
+
+    const message = {
+      type: 'transfer-complete',
+      sessionId: this.sessionId
+    };
+
+    logger.info('Sending transfer complete...');
+    this.send(message);
   }
 
   /**
    * register event listener
    */
   on(event, handler) {
-    if (!this.socket) {
-      logger.debug('Socket not initialized yet. Storing event handler for later:', event);
-      this.pendingHandlers.set(event, handler);
-      return;
-    }
-
     logger.debug('Registering event handler:', event);
-    this.socket.on(event, handler);
     this.eventHandlers.set(event, handler);
   }
 
@@ -168,42 +218,53 @@ class SocketService {
    * remove event listener
    */
   off(event) {
-    if (!this.socket) {
-      this.pendingHandlers.delete(event);
-      return;
-    }
+    this.eventHandlers.delete(event);
+  }
 
-    const handler = this.eventHandlers.get(event);
-    if (handler) {
-      this.socket.off(event, handler);
-      this.eventHandlers.delete(event);
+  /**
+   * send message to server
+   */
+  send(message) {
+    if (this.ws && this.isConnected) {
+      try {
+        this.ws.send(JSON.stringify(message));
+      } catch (error) {
+        logger.error('Error sending message:', error);
+      }
+    } else {
+      logger.error('WebSocket not connected, cannot send message');
     }
   }
 
   /**
-   * disconnect from SocketIO server
+   * disconnect from server
    */
   disconnect() {
-    if (this.socket) {
-      logger.info('Disconnecting from SocketIO server...');
-      this.socket.disconnect();
-      this.socket = null;
+    if (this.ws) {
+      logger.info('Disconnecting from WebSocket server...');
       this.isConnected = false;
+      this.reconnectAttempts = this.maxReconnectAttempts; 
+      this.ws.close();
+      this.ws = null;
       this.sessionId = null;
       this.role = null;
       this.eventHandlers.clear();
-      this.pendingHandlers.clear();
     }
   }
 
-
+  /**
+   * get connection status
+   */
   getConnectionStatus() {
     return this.isConnected;
   }
 
+  /**
+   * get socket ID
+   */
   getSocketId() {
-    return this.socket?.id || null;
+    return this.ws?.url || null;
   }
 }
 
-export const socketService = new SocketService();
+export const socketService = new WebSocketService();

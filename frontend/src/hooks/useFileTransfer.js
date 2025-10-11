@@ -13,7 +13,8 @@ export const useFileTransfer = () => {
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState(null);
   const [transferComplete, setTransferComplete] = useState(false);
-  const [receivedFileData, setReceivedFileData] = useState(null);
+  const [receivedFiles, setReceivedFiles] = useState([]); // Changed to array
+  const [currentlyDownloading, setCurrentlyDownloading] = useState(null);
 
   /**
    * send file through WebRTC
@@ -67,16 +68,25 @@ export const useFileTransfer = () => {
     setFileName("");
     setError(null);
     setTransferComplete(false);
-    setReceivedFileData(null);
+    setReceivedFiles([]); 
+    setCurrentlyDownloading(null);
   }, []);
 
-  const downloadReceivedFile = useCallback(() => {
-    if (receivedFileData) {
-      downloadFile(receivedFileData.blob, receivedFileData.metadata.name);
-      setTransferComplete(true);
-      setReceivedFileData(null);
+  /**
+   * download a specific file from the queue
+   */
+  const downloadReceivedFile = useCallback((fileIndex) => {
+    if (fileIndex >= 0 && fileIndex < receivedFiles.length) {
+      const file = receivedFiles[fileIndex];
+      setCurrentlyDownloading(fileIndex);
+      downloadFile(file.blob, file.metadata.name);
+      
+      setTimeout(() => {
+        setReceivedFiles(prev => prev.filter((_, idx) => idx !== fileIndex));
+        setCurrentlyDownloading(null);
+      }, 500);
     }
-  }, [receivedFileData]);
+  }, [receivedFiles]);
 
   /**
    * file transfer callbacks
@@ -105,8 +115,12 @@ export const useFileTransfer = () => {
       logger.success("File receive complete:", metadata.name);
       setIsReceiving(false);
       setFileName(metadata.name);
-      setReceivedFileData({ blob, metadata });
-      // downloadFile(blob, metadata.name);
+      
+      setReceivedFiles(prev => [...prev, { blob, metadata }]);
+      
+      setProgress(0);
+      setCurrentChunk(0);
+      setTotalChunks(0);
     };
 
     fileTransferService.onError = (err) => {
@@ -120,7 +134,6 @@ export const useFileTransfer = () => {
       fileTransferService.handleReceivedData(data);
     };
 
-    // cleanup
     return () => {
       fileTransferService.onSendProgress = null;
       fileTransferService.onSendComplete = null;
@@ -140,7 +153,8 @@ export const useFileTransfer = () => {
     fileName,
     error,
     transferComplete,
-    receivedFileData,
+    receivedFiles, 
+    currentlyDownloading,
     sendFile,
     cancelTransfer,
     resetTransfer,
