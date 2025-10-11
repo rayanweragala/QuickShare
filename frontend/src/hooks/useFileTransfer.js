@@ -13,6 +13,7 @@ export const useFileTransfer = () => {
   const [fileName, setFileName] = useState("");
   const [error, setError] = useState(null);
   const [transferComplete, setTransferComplete] = useState(false);
+  const [receivedFileData, setReceivedFileData] = useState(null);
 
   /**
    * send file through WebRTC
@@ -66,7 +67,16 @@ export const useFileTransfer = () => {
     setFileName("");
     setError(null);
     setTransferComplete(false);
+    setReceivedFileData(null);
   }, []);
+
+  const downloadReceivedFile = useCallback(() => {
+    if (receivedFileData) {
+      downloadFile(receivedFileData.blob, receivedFileData.metadata.name);
+      setTransferComplete(true);
+      setReceivedFileData(null);
+    }
+  }, [receivedFileData]);
 
   /**
    * file transfer callbacks
@@ -94,10 +104,9 @@ export const useFileTransfer = () => {
     fileTransferService.onReceiveComplete = (blob, metadata) => {
       logger.success("File receive complete:", metadata.name);
       setIsReceiving(false);
-      setTransferComplete(true);
       setFileName(metadata.name);
-
-      downloadFile(blob, metadata.name);
+      setReceivedFileData({ blob, metadata });
+      // downloadFile(blob, metadata.name);
     };
 
     fileTransferService.onError = (err) => {
@@ -131,8 +140,10 @@ export const useFileTransfer = () => {
     fileName,
     error,
     transferComplete,
+    receivedFileData,
     sendFile,
     cancelTransfer,
     resetTransfer,
+    downloadReceivedFile,
   };
 };

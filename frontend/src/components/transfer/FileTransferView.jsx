@@ -25,6 +25,8 @@ export const FileTransferView = ({ role }) => {
     sendFile,
     cancelTransfer,
     resetTransfer,
+    receivedFileData,
+    downloadReceivedFile
   } = useFileTransfer();
 
   const [selectedFile, setSelectedFile] = useState(null);
@@ -42,6 +44,78 @@ export const FileTransferView = ({ role }) => {
     resetTransfer();
     setSelectedFile(null);
   };
+
+  if (receivedFileData && role === 'receiver' && !transferComplete) {
+  return (
+    <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 animate-fade-in">
+      <div className="text-center mb-6">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/10 rounded-2xl mb-4 border border-green-500/20">
+          <svg
+            className="w-8 h-8 text-green-500"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        
+        <h3 className="text-2xl font-bold text-white mb-2">
+          File Received
+        </h3>
+        <p className="text-neutral-400 mb-6">
+          Ready to download to your device
+        </p>
+      </div>
+
+      <div className="bg-neutral-900/50 rounded-xl p-6 border border-neutral-700 mb-6">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 bg-green-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+            <svg className="w-6 h-6 text-green-500" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+              <path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-white text-lg mb-1 truncate">
+              {receivedFileData.metadata.name}
+            </p>
+            <p className="text-neutral-400 text-sm">
+              {formatFileSize(receivedFileData.metadata.size)}
+            </p>
+            <p className="text-green-400 text-xs mt-2">
+              ✓ Transfer complete
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <button
+          onClick={downloadReceivedFile}
+          className="flex-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+        >
+          <svg className="w-5 h-5" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Download File
+        </button>
+        <button
+          onClick={handleReset}
+          className="sm:w-auto bg-neutral-700 hover:bg-neutral-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200"
+        >
+          Decline
+        </button>
+      </div>
+
+      <p className="text-xs text-neutral-500 text-center mt-4">
+        File is ready in your browser memory
+      </p>
+    </div>
+  );
+}
 
   if (role === 'sender' && !isSending && !transferComplete) {
     return (
