@@ -3,6 +3,7 @@ package com.localshare.backend;
 import com.corundumstudio.socketio.Configuration;
 import com.corundumstudio.socketio.SocketIOServer;
 import com.localshare.backend.util.LoggerUtil;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.SpringApplication;
@@ -11,12 +12,13 @@ import org.springframework.context.annotation.Bean;
 
 /**
  * main spring boot application for localshare peer to peer file sharing backend
- * this class read main configuration properties and configures the socketIO signaling server
+ * this class reads main configuration properties and configures the socketIO signaling server
  */
 @SpringBootApplication
 public class LocalShareBackendApplication {
     @Value("${socketio.host}")
     private String socketHost;
+
     @Value("${socketio.port}")
     private Integer socketPort;
 
@@ -31,16 +33,16 @@ public class LocalShareBackendApplication {
 
     @Value("${socketio.max-http-content-length}")
     private Integer maxHttpContentLength;
+
     private SocketIOServer socketIOServer;
 
     public static void main(String[] args) {
         LoggerUtil.audit("=== LocalShare Backend Starting ===");
         SpringApplication.run(LocalShareBackendApplication.class, args);
-        LoggerUtil.audit("=== LocalShare Backend Started Successfully ===");
     }
 
     @Bean
-    public SocketIOServer socketIOServer(){
+    public SocketIOServer socketIOServer() {
         LoggerUtil.info(LocalShareBackendApplication.class,
                 "Configuring socketIO server on " + socketHost + ":" + socketPort);
 
@@ -52,19 +54,40 @@ public class LocalShareBackendApplication {
         configuration.setMaxFramePayloadLength(maxFramePayloadLength);
         configuration.setMaxHttpContentLength(maxHttpContentLength);
 
-        socketIOServer = new SocketIOServer(configuration);
-        socketIOServer.start();
+        this.socketIOServer = new SocketIOServer(configuration);
 
-        LoggerUtil.audit("socketIO server started on port " + socketPort);
+        LoggerUtil.audit("socketIO server configured successfully");
         return socketIOServer;
     }
 
+    /**
+     * Start Socket.IO server after Spring Boot application context is initialized
+     * This ensures all beans are ready before Socket.IO starts accepting connections
+     */
+    @PostConstruct
+    public void onApplicationStart() {
+        try {
+            if (socketIOServer != null) {
+                socketIOServer.start();
+                LoggerUtil.audit("socketIO server started on port " + socketPort);
+                LoggerUtil.audit("=== LocalShare Backend Started Successfully ===");
+            }
+        } catch (Exception e) {
+            LoggerUtil.error(LocalShareBackendApplication.class, "Failed to start Socket.IO server: " + e.getMessage(), e);
+        }
+    }
+
+
     @PreDestroy
-    public void onShutdown(){
-        if(socketIOServer != null){
+    public void onShutdown() {
+        if (socketIOServer != null) {
             LoggerUtil.audit("shutting down socketIO server...");
-            socketIOServer.stop();
-            LoggerUtil.audit("shutdown success");
+            try {
+                socketIOServer.stop();
+                LoggerUtil.audit("socketIO server shutdown success");
+            } catch (Exception e) {
+                LoggerUtil.error(LocalShareBackendApplication.class, "Error during Socket.IO shutdown: " +e.getMessage() ,e);
+            }
         }
     }
 }
