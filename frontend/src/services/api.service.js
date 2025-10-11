@@ -87,13 +87,17 @@ export const apiService = {
    * delete a session
    */
   deleteSession: async (sessionId) => {
-    try {
-      const response = await apiClient.delete(`/sessions/${sessionId}`);
-      return response.data;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || 'Failed to delete session');
+  try {
+    const response = await apiClient.delete(`/sessions/${sessionId}`);
+    return response.data;
+  } catch (error) {
+    if (error.response?.status === 404) {
+      logger.info('Session already ended (not found), treating as success');
+      return { sessionId, status: 'EXPIRED', message: 'Session already ended' }; 
     }
-  },
+    throw new Error(error.response?.data?.message || 'Failed to delete session');
+  }
+},
 
   /**
    * update session status
