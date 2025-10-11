@@ -6,6 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:prod": "vite build --mode production",
+    "copy-to-spring": "npm run build:prod && rm -rf ../backend/src/main/resources/static/* && cp -r dist/* ../backend/src/main/resources/static/",
+    "deploy": "npm run copy-to-spring && echo 'Build complete! Run Spring Boot to serve the app.'",
     "lint": "eslint .",
     "preview": "vite preview"
   },

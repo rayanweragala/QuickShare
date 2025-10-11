@@ -1,7 +1,7 @@
 server:
   port: 8080
   servlet:
-    context-path: /api
+    context-path: /
 
 spring:
   application:
@@ -16,6 +16,11 @@ spring:
           max-active: 8
           max-idle: 8
           min-idle: 2
+  web:
+    resources:
+      static-locations: classpath:/META-INF/resources/, classpath:/resources/, classpath:/static/, classpath:/public/
+  mvc:
+    static-path-pattern: /**
 
 socketio:
   host: 0.0.0.0
@@ -33,6 +38,7 @@ cors:
   allowed-origins:
     - http://localhost:5173
     - http://localhost:3000
+    - http://localhost:8080
   allowed-methods:
     - GET
     - POST
