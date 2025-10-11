@@ -14,6 +14,7 @@ class SocketService {
     this.sessionId = null;
     this.role = null;
     this.eventHandlers = new Map();
+    this.pendingHandlers = new Map(); 
   }
 
   /**
@@ -37,6 +38,13 @@ class SocketService {
           reconnectionAttempts: 5,
           reconnectionDelay: 1000,
         });
+
+        this.pendingHandlers.forEach((handler, event) => {
+          logger.debug('Registering pending event handler:', event);
+          this.socket.on(event, handler);
+          this.eventHandlers.set(event, handler);
+        });
+        this.pendingHandlers.clear();
 
         this.socket.on('connect', () => {
           this.isConnected = true;
@@ -63,6 +71,20 @@ class SocketService {
         reject(error);
       }
     });
+  }
+
+  /**
+   * send ready signal (receiver tell sender ready)
+   */
+  sendReady(){
+    if(!this.socket || !this.isConnected){
+      logger.error('cannot send ready')
+    }
+    const message = {
+      sessionId : this.sessionId,
+      role: this.role
+    };
+    this.socket.emit('peer-ready',message);
   }
 
   /**
@@ -127,7 +149,8 @@ class SocketService {
    */
   on(event, handler) {
     if (!this.socket) {
-      logger.error('Cannot register event: Socket not initialized');
+      logger.debug('Socket not initialized yet. Storing event handler for later:', event);
+      this.pendingHandlers.set(event, handler);
       return;
     }
 
@@ -140,7 +163,10 @@ class SocketService {
    * remove event listener
    */
   off(event) {
-    if (!this.socket) return;
+    if (!this.socket) {
+      this.pendingHandlers.delete(event);
+      return;
+    }
 
     const handler = this.eventHandlers.get(event);
     if (handler) {
@@ -161,25 +187,18 @@ class SocketService {
       this.sessionId = null;
       this.role = null;
       this.eventHandlers.clear();
+      this.pendingHandlers.clear();
     }
   }
 
-  /**
-   * Get connection status
-   * @returns {boolean}
-   */
+
   getConnectionStatus() {
     return this.isConnected;
   }
 
-  /**
-   * Get socket ID
-   * @returns {string|null}
-   */
   getSocketId() {
     return this.socket?.id || null;
   }
 }
 
-// Export singleton instance
 export const socketService = new SocketService();

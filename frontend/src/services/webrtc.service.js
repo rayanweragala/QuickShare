@@ -1,4 +1,4 @@
-import { logger } from '../utils/logger';
+import { logger } from "../utils/logger";
 
 /**
  * WebRTC Service - Manages peer-to-peer connections
@@ -7,9 +7,9 @@ import { logger } from '../utils/logger';
 
 const RTC_CONFIG = {
   iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
   ],
 };
 
@@ -18,12 +18,59 @@ const DATA_CHANNEL_CONFIG = {
   maxRetransmits: 30,
 };
 
+async function checkWebRTCAvailability() {
+  const issues = [];
+
+  if (typeof RTCPeerConnection === "undefined") {
+    issues.push("RTCPeerConnection is not supported in this browser");
+    return { available: false, issues };
+  }
+
+  if (!navigator.onLine) {
+    issues.push(
+      "Browser reports offline status. Check your network connection."
+    );
+  }
+
+  const isSecure = window.isSecureContext;
+  const isLocalhost = ["localhost", "127.0.0.1", "[::1]"].includes(
+    window.location.hostname
+  );
+
+  if (!isSecure && !isLocalhost) {
+    issues.push(
+      "WebRTC requires HTTPS or localhost. Current protocol: " +
+        window.location.protocol
+    );
+  }
+
+  try {
+    const testPc = new RTCPeerConnection({ iceServers: [] });
+    testPc.close();
+  } catch (error) {
+    issues.push(`Cannot create RTCPeerConnection: ${error.message}`);
+
+    if (error.message.includes("network is down")) {
+      issues.push(
+        "FIREFOX USERS: Go to about:config and set media.peerconnection.enabled = true"
+      );
+      issues.push("Check if VPN or browser extensions are blocking WebRTC");
+      issues.push("Check firewall settings");
+    }
+  }
+
+  return {
+    available: issues.length === 0,
+    issues,
+  };
+}
+
 class WebRTCService {
   constructor() {
     this.peerConnection = null;
     this.dataChannel = null;
     this.isInitiator = false;
-    
+
     this.onIceCandidate = null;
     this.onConnectionStateChange = null;
     this.onDataChannelOpen = null;
@@ -32,20 +79,33 @@ class WebRTCService {
     this.onDataChannelMessage = null;
   }
 
-  /**
-   * Initialize peer connection
-   */
-  initializePeerConnection(isInitiator) {
+  async initializePeerConnection(isInitiator) {
     try {
       this.isInitiator = isInitiator;
-      
-      logger.info('Initializing WebRTC peer connection...', { isInitiator });
-      
+
+      logger.info("Initializing WebRTC peer connection...", { isInitiator });
+
+      const availability = await checkWebRTCAvailability();
+
+      if (!availability.available) {
+        logger.error("WebRTC pre-flight checks failed:", availability.issues);
+
+        availability.issues.forEach((issue) => {
+          logger.error("❌", issue);
+        });
+
+        const error = new Error("WebRTC is not available");
+        error.details = availability.issues;
+        throw error;
+      }
+
+      logger.success("✓ WebRTC pre-flight checks passed");
+
       this.peerConnection = new RTCPeerConnection(RTC_CONFIG);
 
       this.peerConnection.onicecandidate = (event) => {
         if (event.candidate) {
-          logger.debug('New ICE candidate generated:', event.candidate);
+          logger.debug("New ICE candidate generated:", event.candidate);
           if (this.onIceCandidate) {
             this.onIceCandidate(event.candidate);
           }
@@ -54,31 +114,40 @@ class WebRTCService {
 
       this.peerConnection.onconnectionstatechange = () => {
         const state = this.peerConnection.connectionState;
-        logger.info('Connection state changed:', state);
-        
+        logger.info("Connection state changed:", state);
+
         if (this.onConnectionStateChange) {
           this.onConnectionStateChange(state);
         }
       };
 
       this.peerConnection.oniceconnectionstatechange = () => {
-        logger.info('ICE connection state:', this.peerConnection.iceConnectionState);
+        logger.info(
+          "ICE connection state:",
+          this.peerConnection.iceConnectionState
+        );
       };
 
       if (this.isInitiator) {
         this.createDataChannel();
       } else {
         this.peerConnection.ondatachannel = (event) => {
-          logger.info('Data channel received from peer');
+          logger.info("Data channel received from peer");
           this.dataChannel = event.channel;
           this.setupDataChannelHandlers();
         };
       }
 
-      logger.success('Peer connection initialized successfully');
-      
+      logger.success("Peer connection initialized successfully");
     } catch (error) {
-      logger.error('Failed to initialize peer connection:', error);
+      logger.error("Failed to initialize peer connection:", error);
+
+      if (error.details) {
+        logger.error("=== TROUBLESHOOTING STEPS ===");
+        error.details.forEach((detail) => logger.error(detail));
+        logger.error("============================");
+      }
+
       throw error;
     }
   }
@@ -88,19 +157,18 @@ class WebRTCService {
    */
   createDataChannel() {
     try {
-      logger.info('Creating data channel...');
-      
+      logger.info("Creating data channel...");
+
       this.dataChannel = this.peerConnection.createDataChannel(
-        'fileTransfer',
+        "fileTransfer",
         DATA_CHANNEL_CONFIG
       );
-      
+
       this.setupDataChannelHandlers();
-      
-      logger.success('Data channel created');
-      
+
+      logger.success("Data channel created");
     } catch (error) {
-      logger.error('Failed to create data channel:', error);
+      logger.error("Failed to create data channel:", error);
       throw error;
     }
   }
@@ -112,21 +180,21 @@ class WebRTCService {
     if (!this.dataChannel) return;
 
     this.dataChannel.onopen = () => {
-      logger.success('Data channel opened');
+      logger.success("Data channel opened");
       if (this.onDataChannelOpen) {
         this.onDataChannelOpen();
       }
     };
 
     this.dataChannel.onclose = () => {
-      logger.warn('Data channel closed');
+      logger.warn("Data channel closed");
       if (this.onDataChannelClose) {
         this.onDataChannelClose();
       }
     };
 
     this.dataChannel.onerror = (error) => {
-      logger.error('Data channel error:', error);
+      logger.error("Data channel error:", error);
       if (this.onDataChannelError) {
         this.onDataChannelError(error);
       }
@@ -143,60 +211,56 @@ class WebRTCService {
 
   /**
    * create WebRTC offer (sender)
-   * @returns {Promise<RTCSessionDescription>}
    */
   async createOffer() {
-    try {
-      logger.info('Creating offer...');
-      
-      const offer = await this.peerConnection.createOffer();
-      await this.peerConnection.setLocalDescription(offer);
-      
-      logger.success('Offer created:', offer);
-      return offer;
-      
-    } catch (error) {
-      logger.error('Failed to create offer:', error);
-      throw error;
-    }
+  if (!this.peerConnection) {
+    throw new Error('Peer connection not initialized');
   }
+  
+  try {
+    logger.info('Creating offer...');
+    const offer = await this.peerConnection.createOffer();
+    await this.peerConnection.setLocalDescription(offer);
+    logger.success('Offer created:', offer);
+    return offer;
+  } catch (error) {
+    logger.error('Failed to create offer:', error);
+    throw error;
+  }
+}
 
   /**
    * create WebRTC answer (receiver)
-   * @returns {Promise<RTCSessionDescription>}
    */
   async createAnswer() {
     try {
-      logger.info('Creating answer...');
-      
+      logger.info("Creating answer...");
+
       const answer = await this.peerConnection.createAnswer();
       await this.peerConnection.setLocalDescription(answer);
-      
-      logger.success('Answer created:', answer);
+
+      logger.success("Answer created:", answer);
       return answer;
-      
     } catch (error) {
-      logger.error('Failed to create answer:', error);
+      logger.error("Failed to create answer:", error);
       throw error;
     }
   }
 
   /**
    * set remote description (offer or answer)
-   * @param {RTCSessionDescription} description
    */
   async setRemoteDescription(description) {
     try {
-      logger.info('Setting remote description...', description.type);
-      
+      logger.info("Setting remote description...", description.type);
+
       await this.peerConnection.setRemoteDescription(
         new RTCSessionDescription(description)
       );
-      
-      logger.success('Remote description set');
-      
+
+      logger.success("Remote description set");
     } catch (error) {
-      logger.error('Failed to set remote description:', error);
+      logger.error("Failed to set remote description:", error);
       throw error;
     }
   }
@@ -211,42 +275,39 @@ class WebRTCService {
         await this.peerConnection.addIceCandidate(
           new RTCIceCandidate(candidate)
         );
-        logger.debug('ICE candidate added');
+        logger.debug("ICE candidate added");
       }
     } catch (error) {
-      logger.error('Failed to add ICE candidate:', error);
+      logger.error("Failed to add ICE candidate:", error);
     }
   }
 
   /**
    * send data through data channel
-   * @param {string|ArrayBuffer|Blob} data
    */
   send(data) {
-    if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
-      logger.error('Cannot send: Data channel not open');
-      throw new Error('Data channel not open');
+    if (!this.dataChannel || this.dataChannel.readyState !== "open") {
+      logger.error("Cannot send: Data channel not open");
+      throw new Error("Data channel not open");
     }
 
     try {
       this.dataChannel.send(data);
     } catch (error) {
-      logger.error('Failed to send data:', error);
+      logger.error("Failed to send data:", error);
       throw error;
     }
   }
 
   /**
    * check if data channel is ready for sending
-   * @returns {boolean}
    */
   isChannelReady() {
-    return this.dataChannel && this.dataChannel.readyState === 'open';
+    return this.dataChannel && this.dataChannel.readyState === "open";
   }
 
   /**
    * get buffered amount
-   * @returns {number}
    */
   getBufferedAmount() {
     return this.dataChannel ? this.dataChannel.bufferedAmount : 0;
@@ -254,17 +315,16 @@ class WebRTCService {
 
   /**
    * get connection state
-   * @returns {string}
    */
   getConnectionState() {
-    return this.peerConnection ? this.peerConnection.connectionState : 'closed';
+    return this.peerConnection ? this.peerConnection.connectionState : "closed";
   }
 
   /**
    * close connection and cleanup
    */
   close() {
-    logger.info('Closing WebRTC connection...');
+    logger.info("Closing WebRTC connection...");
 
     if (this.dataChannel) {
       this.dataChannel.close();
@@ -284,8 +344,9 @@ class WebRTCService {
     this.onDataChannelError = null;
     this.onDataChannelMessage = null;
 
-    logger.success('WebRTC connection closed');
+    logger.success("WebRTC connection closed");
   }
 }
 
 export const webrtcService = new WebRTCService();
+export { checkWebRTCAvailability };
