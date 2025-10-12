@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { SessionCreator, SessionJoiner } from "./components/session";
-import { Button, Card } from "./components/common";
 
 function App() {
   const [view, setView] = useState("home");
