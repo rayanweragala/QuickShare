@@ -12,6 +12,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * REST API controller for session management
@@ -42,9 +45,36 @@ public class SessionController {
                 .bothConnected(false)
                 .createdAt(session.getCreatedAt().format(DateTimeFormatter.ISO_DATE_TIME))
                 .qrCodeData(generateQrCodeUrl(session.getSessionId()))
+                .isMultiRecipient(false)
                 .build();
 
         LoggerUtil.audit("session created successfully, sessionId=" + session.getSessionId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /**
+     * create a new broadcast session
+     */
+    @PostMapping("/create-broadcast")
+    public ResponseEntity<SessionResponse> createBroadCastSession(HttpServletRequest request) {
+        String clientIp = getClientIP(request);
+        LoggerUtil.audit("broadcast session create request for ip=" + clientIp);
+
+        String tempSocketId = "temp-" + System.currentTimeMillis();
+
+        Session session = sessionService.createBroadcastSession(tempSocketId, clientIp);
+
+        SessionResponse response = SessionResponse.builder()
+                .sessionId(session.getSessionId())
+                .status(session.getStatus())
+                .message("broadcast session created successfully. share the code with receivers")
+                .bothConnected(false)
+                .createdAt(session.getCreatedAt().format(DateTimeFormatter.ISO_DATE_TIME))
+                .qrCodeData(generateQrCodeUrl(session.getSessionId()))
+                .isMultiRecipient(true)
+                .build();
+
+        LoggerUtil.audit("broadcast session created successfully, sessionId=" + session.getSessionId());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -54,7 +84,7 @@ public class SessionController {
     @PostMapping("/join/{sessionId}")
     public ResponseEntity<SessionResponse> joinSession(@PathVariable String sessionId, HttpServletRequest request){
         String clientIp = getClientIP(request);
-        LoggerUtil.audit("join session request for sessionId=" + sessionId + ",and ip=" + clientIp);
+        LoggerUtil.dev("join session request for sessionId=" + sessionId + ",and ip=" + clientIp);
 
         if(sessionId == null || sessionId.trim().isEmpty()){
             throw new IllegalArgumentException("session id cannot be empty");
@@ -71,6 +101,32 @@ public class SessionController {
                 .build();
 
         LoggerUtil.audit("session join successful for sessionId=" + sessionId);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * allows adding receivers to exist broadcast session
+     */
+    @PostMapping("{sessionId}/add-receiver")
+    private ResponseEntity<SessionResponse> addReceiverToSession(@PathVariable String  sessionId, HttpServletRequest request) {
+        String clientIp = getClientIP(request);
+        LoggerUtil.dev("add receiver for sessionId=" + sessionId);
+
+        if(sessionId == null || sessionId.trim().isEmpty()){
+            throw new IllegalArgumentException("session id cannot be empty");
+        }
+
+        String tempSocketId = "temp-" + System.currentTimeMillis();
+        Session session = sessionService.addReceiver(sessionId, tempSocketId, clientIp);
+
+        SessionResponse response = SessionResponse.builder()
+                .sessionId(session.getSessionId())
+                .status(session.getStatus())
+                .message("successfully added to the session. peer connection creating...")
+                .bothConnected(session.isBothConnected())
+                .build();
+
+        LoggerUtil.audit("session adding successful for sessionId=" + sessionId);
         return ResponseEntity.ok(response);
     }
 
@@ -99,6 +155,26 @@ public class SessionController {
     }
 
     /**
+     * retrieve list of all connected receivers
+     */
+    @GetMapping("/{sessionId}/receivers")
+    private ResponseEntity<Map<String, Object>> getActiveReceivers(@PathVariable String sessionId, HttpServletRequest request){
+        Session session = sessionService.getSession(sessionId);
+
+        if(session == null || !session.isMultiRecipient()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "session not found or not broadcast"));
+        }
+        Map<String, Object> response = new HashMap<>();
+        response.put("sessionId", session.getSessionId());
+        response.put("totalReceivers", session.getReceiverSocketIds().size());
+        response.put("receiverIds", session.getReceiverSocketIds());
+        response.put("receiverProgress", session.getReceiverProgress());
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * manually end a session and resources cleanup
      */
     @DeleteMapping("/{sessionId}")
@@ -117,6 +193,7 @@ public class SessionController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(SessionResponse.error("session not found"));
         }
     }
+
 
     /**
      * update the status of a session (e.g., CONNECTED --> TRANSFERRING)
@@ -160,7 +237,6 @@ public class SessionController {
 
     /**
      * generate QR code url to display on frontend
-     * for now just returning session ID
      */
     private String generateQrCodeUrl(String sessionId){
 
