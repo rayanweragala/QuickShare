@@ -1,6 +1,17 @@
+![Release v1.1.0](https://img.shields.io/badge/release-v1.1.0-blue)
 # LocalShare
 
 A secure, peer-to-peer file sharing web application that enables instant file transfers between devices without uploading files to any server.
+
+## Release Notes
+### v1.1.0 – 2025-10-13
+- Added **multi-recipient broadcast session support**
+- Completed frontend/backend broadcast sharing fixes
+- SEO improvements for SPA build
+- Migrated to Spring Boot native **WebSocket** implementation
+- Added **Dockerfile** and updated `docker-compose.yml`
+
+> See [v1.1.0 Release on GitHub](https://github.com/rayanweragala/LocalShare/releases/tag/v1.1.0) for full release assets.
 
 ## Overview
 
@@ -18,6 +29,7 @@ LocalShare allows users to share files directly between browsers using WebRTC te
 - **Connection Fallback**: Automatic relay proxy when direct P2P connection fails
 - **Local History**: Previous share sessions stored in browser using IndexedDB
 - **Progressive Web App**: Installable with offline support via service workers
+- **Multi-Recipient Broadcast**: Share files or sessions with multiple devices at once
 
 ## Architecture
 
