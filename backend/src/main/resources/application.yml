@@ -3,6 +3,24 @@ server:
   servlet:
     context-path: /
 
+  compression:
+    enabled: true
+    min-response-size: 1024
+    mime-types:
+      - text/html
+      - text/xml
+      - text/plain
+      - text/css
+      - text/javascript
+      - application/javascript
+      - application/json
+
+  http2:
+    enabled: true
+  error:
+    include-stacktrace: never
+    include-message: always
+
 spring:
   application:
     name: LocalShare-Backend
@@ -20,6 +38,8 @@ spring:
   web:
     resources:
       static-locations: classpath:/META-INF/resources/, classpath:/resources/, classpath:/static/, classpath:/public/
+      cache:
+          period: 31536000
   mvc:
     static-path-pattern: /**
 
@@ -52,3 +72,6 @@ cors:
 
 logging:
   config: classpath:logback-spring.xml
+  level:
+    root: info
+    com.localshare.backend: DEBUG

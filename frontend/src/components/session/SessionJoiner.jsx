@@ -29,6 +29,7 @@ export const SessionJoiner = ({ onSessionEnd }) => {
   const {
     connectionState,
     isChannelReady,
+    error: webrtcError,
     initializeConnection,
     closeConnection,
   } = useWebRTC(false);
@@ -37,20 +38,40 @@ export const SessionJoiner = ({ onSessionEnd }) => {
 
   useEffect(() => {
     if (isConnected && connectionState === "new") {
-      initializeConnection().then(() => {
-        setTimeout(() => {
-          logger.info("Sending ready signal to sender...");
-          socketService.sendReady();
-        }, 500);
-      });
+      initializeConnection();
     }
   }, [isConnected, connectionState, initializeConnection]);
+
+  useEffect(() => {
+    if (isConnected && connectionState === "new") {
+      const timer = setTimeout(() => {
+        logger.info("Sending ready signal to sender...");
+        socketService.sendReady();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isConnected, connectionState]);
 
   useEffect(() => {
     if (isChannelReady) {
       setShowTransfer(true);
     }
   }, [isChannelReady]);
+
+  useEffect(() => {
+    const handlePeerDisconnected = () => {
+      logger.warn("Sender disconnected, redirecting to main...");
+      closeConnection();
+      setShowTransfer(false);
+      onSessionEnd?.();
+    };
+
+    socketService.on("peer-disconnected", handlePeerDisconnected);
+
+    return () => {
+      socketService.off("peer-disconnected");
+    };
+  }, [onSessionEnd, closeConnection]);
 
   const handleCodeChange = (e) => {
     const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -69,11 +90,20 @@ export const SessionJoiner = ({ onSessionEnd }) => {
   };
 
   const handleEndSession = async () => {
-    closeConnection();
-    await endSession();
-    setShowTransfer(false);
-    setCode("");
-    onSessionEnd?.();
+    try {
+      closeConnection();
+      
+      socketService.disconnect();
+      
+      await endSession();
+      
+      setShowTransfer(false);
+      setCode("");
+      onSessionEnd?.();
+    } catch (err) {
+      logger.error("Error ending session:", err);
+      onSessionEnd?.();
+    }
   };
 
   if (!session) {
@@ -110,6 +140,14 @@ export const SessionJoiner = ({ onSessionEnd }) => {
             {error && (
               <ErrorMessage
                 message={error}
+                onDismiss={clearError}
+                className="mb-6"
+              />
+            )}
+
+            {webrtcError && (
+              <ErrorMessage
+                message={webrtcError}
                 onDismiss={clearError}
                 className="mb-6"
               />
@@ -205,6 +243,14 @@ export const SessionJoiner = ({ onSessionEnd }) => {
         {error && (
           <ErrorMessage
             message={error}
+            onDismiss={clearError}
+            className="mb-6"
+          />
+        )}
+
+        {webrtcError && (
+          <ErrorMessage
+            message={webrtcError}
             onDismiss={clearError}
             className="mb-6"
           />

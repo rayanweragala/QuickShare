@@ -15,6 +15,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * REST API controller for session management
@@ -90,9 +91,21 @@ public class SessionController {
             throw new IllegalArgumentException("session id cannot be empty");
         }
 
-        String tempSocketId = "temp-" + System.currentTimeMillis();
-        Session session = sessionService.joinSession(sessionId.toUpperCase(),tempSocketId,clientIp);
+        Session session = sessionService.getSession(sessionId.toUpperCase());
 
+        if(session == null) {
+            LoggerUtil.warn(SessionController.class, "session not found for sessionId=" + sessionId);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(SessionResponse.error("session not found"));
+        }
+
+        if(session.isMultiRecipient()){
+            sessionService.addReceiver(sessionId.toUpperCase(),null,clientIp);
+            LoggerUtil.audit("receiver added to broadcast session for sessionId=" + sessionId);
+        } else {
+            String tempSocketId = "temp-" + System.currentTimeMillis();
+            sessionService.joinSession(sessionId.toUpperCase(), tempSocketId, clientIp);
+        }
         SessionResponse response = SessionResponse.builder()
                 .sessionId(session.getSessionId())
                 .status(session.getStatus())
@@ -165,11 +178,17 @@ public class SessionController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(Map.of("error", "session not found or not broadcast"));
         }
+        Set<String> receiverIds = session.getReceiverSocketIds();
+        if(receiverIds == null){
+            receiverIds = Set.of();
+        }
+
         Map<String, Object> response = new HashMap<>();
         response.put("sessionId", session.getSessionId());
-        response.put("totalReceivers", session.getReceiverSocketIds().size());
-        response.put("receiverIds", session.getReceiverSocketIds());
-        response.put("receiverProgress", session.getReceiverProgress());
+        response.put("totalReceivers", receiverIds.size());
+        response.put("receiverIds", receiverIds);
+        Map<String, Integer> progress = session.getReceiverProgress();
+        response.put("receiverProgress", progress != null ? progress : Map.of());
 
         return ResponseEntity.ok(response);
     }
