@@ -16,11 +16,12 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Spring WebSocket handler for real-time signaling
- * Manages WebSocket connections and routes WebRTC signaling messages
+ * spring WebSocket handler for real-time signaling
+ * manages WebSocket connections and routes WebRTC signaling messages
  */
 @Component
 @RequiredArgsConstructor
@@ -29,9 +30,13 @@ public class WebSocketHandler extends TextWebSocketHandler {
     private final SessionService sessionService;
     private final ObjectMapper objectMapper;
 
-    private final Map<String, Map<String, WebSocketSession>> sessionConnections = new ConcurrentHashMap<>();
+    private final Map<String, WebSocketSession> socketIdToSession = new ConcurrentHashMap<>();
     private final Map<WebSocketSession, Map<String, String>> sessionMetadata = new ConcurrentHashMap<>();
+    private final Map<String, Object> sessionLocks = new ConcurrentHashMap<>();
 
+    private Object getSessionLock(String sessionId) {
+        return sessionLocks.computeIfAbsent(sessionId, k -> new Object());
+    }
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         String query = session.getUri().getQuery();
@@ -44,16 +49,21 @@ public class WebSocketHandler extends TextWebSocketHandler {
             metadata.put("role", role);
             sessionMetadata.put(session, metadata);
 
-            sessionConnections.computeIfAbsent(sessionId, k -> new ConcurrentHashMap<>())
-                    .put(role, session);
+            socketIdToSession.put(session.getId(), session);
+
+            Session dbSession = sessionService.getSession(sessionId.toUpperCase());
 
             if ("sender".equalsIgnoreCase(role)) {
                 sessionService.updateSenderSocketId(sessionId.toUpperCase(), session.getId());
             } else if ("receiver".equalsIgnoreCase(role)) {
-                sessionService.updateReceiverSocketId(sessionId.toUpperCase(), session.getId());
+                if (dbSession != null && dbSession.isMultiRecipient()) {
+                    sessionService.updateReceiverSocketIdInBroadcast(sessionId.toUpperCase(), null, session.getId());
+                } else {
+                    sessionService.updateReceiverSocketId(sessionId.toUpperCase(), session.getId());
+                }
             }
 
-            LoggerUtil.audit("WebSocket connected for sessionId=" + sessionId + ",role=" + role);
+            LoggerUtil.audit("WebSocket connected for sessionId=" + sessionId + ",role=" + role + ",socketId=" + session.getId());
         }
     }
 
@@ -92,6 +102,9 @@ public class WebSocketHandler extends TextWebSocketHandler {
                 case "transfer-complete":
                     handleTransferComplete(sessionId, signalingMsg);
                     break;
+                case "broadcast-status":
+                    handleBroadcastStatus(sessionId, signalingMsg);
+                    break;
                 default:
                     LoggerUtil.warn(WebSocketHandler.class, "Unknown message type: " + type);
             }
@@ -107,13 +120,17 @@ public class WebSocketHandler extends TextWebSocketHandler {
             String sessionId = metadata.get("sessionId");
             String role = metadata.get("role");
 
-            sessionConnections.computeIfPresent(sessionId, (k, v) -> {
-                v.remove(role);
-                return v.isEmpty() ? null : v;
-            });
+            socketIdToSession.remove(session.getId());
 
-            sessionService.updateSessionStatus(sessionId, SessionStatus.EXPIRED);
-            notifyPeerDisconnected(sessionId);
+            Session dbSession = sessionService.getSession(sessionId);
+
+            if ("receiver".equalsIgnoreCase(role) && dbSession != null && dbSession.isMultiRecipient()) {
+                sessionService.removeReceiver(sessionId, session.getId());
+                notifyReceiverDisconnected(sessionId, session.getId());
+            } else {
+                sessionService.updateSessionStatus(sessionId, SessionStatus.EXPIRED);
+                notifyPeerDisconnected(sessionId);
+            }
 
             LoggerUtil.audit("WebSocket disconnected for sessionId=" + sessionId + ",role=" + role);
         }
@@ -121,117 +138,280 @@ public class WebSocketHandler extends TextWebSocketHandler {
 
     private void handleOffer(String sessionId, WebSocketSession sender, SignalingMessage message) throws IOException {
         Session session = sessionService.getSession(sessionId);
-        if (session == null || session.getReceiverSocketId() == null) {
-            sendError(sender, "receiver not connected");
+        Object lock = getSessionLock(sessionId);
+
+        if (session == null) {
+            sendError(sender, "session not found");
             return;
         }
 
-        WebSocketSession receiverSession = sessionConnections.get(sessionId).get("receiver");
-        if (receiverSession != null && receiverSession.isOpen()) {
-            message.setFrom(sender.getId());
-            message.setTo(receiverSession.getId());
-            receiverSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
-            LoggerUtil.audit("offer routed to receiver for sessionId=" + sessionId);
+        if (session.isMultiRecipient()) {
+            String targetReceiverId = message.getTo();
+
+            if (targetReceiverId != null) {
+                WebSocketSession receiverSession = socketIdToSession.get(targetReceiverId);
+                if (receiverSession != null && receiverSession.isOpen()) {
+                    message.setFrom(sender.getId());
+                    message.setTo(receiverSession.getId());
+                    synchronized (lock) {
+                        receiverSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
+                    }
+                    LoggerUtil.audit("offer sent to specific receiver " + targetReceiverId + " for sessionId=" + sessionId);
+                } else {
+                    LoggerUtil.warn(WebSocketHandler.class, "target receiver not found: " + targetReceiverId);
+                }
+            } else {
+                Set<String> receiverSocketIds = session.getReceiverSocketIds();
+                if (receiverSocketIds == null || receiverSocketIds.isEmpty()) {
+                    sendError(sender, "no receivers connected");
+                    return;
+                }
+
+                int sentCount = 0;
+                for (String receiverSocketId : receiverSocketIds) {
+                    WebSocketSession receiverSession = socketIdToSession.get(receiverSocketId);
+
+                    if (receiverSession != null && receiverSession.isOpen()) {
+                        message.setFrom(sender.getId());
+                        message.setTo(receiverSession.getId());
+                        synchronized (lock) {
+                            receiverSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
+                        }
+                        sentCount++;
+                        LoggerUtil.audit("offer sent to receiver " + receiverSocketId + " for sessionId=" + sessionId);
+                    } else {
+                        LoggerUtil.warn(WebSocketHandler.class, "receiver session not found or closed for receiverId=" + receiverSocketId);
+                    }
+                }
+                LoggerUtil.audit("offer broadcast to " + sentCount + " out of " + receiverSocketIds.size() + " receivers for sessionId=" + sessionId);
+            }
+        } else {
+            String receiverSocketId = session.getReceiverSocketId();
+            if (receiverSocketId == null) {
+                sendError(sender, "receiver not connected");
+                return;
+            }
+
+            WebSocketSession receiverSession = socketIdToSession.get(receiverSocketId);
+
+            if (receiverSession != null && receiverSession.isOpen()) {
+                message.setFrom(sender.getId());
+                message.setTo(receiverSession.getId());
+                synchronized (lock) {
+                    receiverSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
+                }
+                LoggerUtil.audit("offer routed to receiver for sessionId=" + sessionId);
+            } else {
+                LoggerUtil.error(WebSocketHandler.class, "receiver session not found or closed for sessionId=" + sessionId + ",receiverSocketId=" + receiverSocketId,null);
+                sendError(sender, "receiver session not found or closed");
+            }
         }
     }
-
     private void handleAnswer(String sessionId, WebSocketSession sender, SignalingMessage message) throws IOException {
         Session session = sessionService.getSession(sessionId);
+        Object lock = getSessionLock(sessionId);
+
         if (session == null || session.getSenderSocketId() == null) {
             sendError(sender, "sender not connected");
             return;
         }
 
-        WebSocketSession senderSession = sessionConnections.get(sessionId).get("sender");
+        WebSocketSession senderSession = socketIdToSession.get(session.getSenderSocketId());
         if (senderSession != null && senderSession.isOpen()) {
             message.setFrom(sender.getId());
             message.setTo(senderSession.getId());
-            senderSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
+            synchronized (lock) {
+                senderSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
+            }
             LoggerUtil.audit("answer routed to sender for sessionId=" + sessionId);
+        } else {
+            sendError(sender, "sender session not found or closed");
         }
     }
 
     private void handleIceCandidate(String sessionId, WebSocketSession sender, SignalingMessage message, String role) throws IOException {
         Session session = sessionService.getSession(sessionId);
+        Object lock = getSessionLock(sessionId);
+
         if (session == null) {
             return;
         }
 
-        String targetRole = "sender".equalsIgnoreCase(role) ? "receiver" : "sender";
-        WebSocketSession targetSession = sessionConnections.get(sessionId).get(targetRole);
+        String targetSocketId = message.getTo();
 
-        if (targetSession != null && targetSession.isOpen()) {
-            message.setFrom(sender.getId());
-            message.setTo(targetSession.getId());
-            targetSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
-            LoggerUtil.dev("ice candidate routed for sessionId=" + sessionId);
+        if (targetSocketId == null) {
+            if ("sender".equalsIgnoreCase(role)) {
+                targetSocketId = session.getReceiverSocketId();
+            } else {
+                targetSocketId = session.getSenderSocketId();
+            }
+        }
+
+        if (targetSocketId != null) {
+            WebSocketSession targetSession = socketIdToSession.get(targetSocketId);
+            if (targetSession != null && targetSession.isOpen()) {
+                message.setFrom(sender.getId());
+                message.setTo(targetSession.getId());
+                synchronized (lock) {
+                    targetSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
+                }
+                LoggerUtil.dev("ice candidate routed for sessionId=" + sessionId +
+                        (session.isMultiRecipient() ? ",to=" + targetSocketId : ""));
+            }
         }
     }
 
     private void handlePeerReady(String sessionId, WebSocketSession sender, SignalingMessage message) throws IOException {
         Session session = sessionService.getSession(sessionId);
+        Object lock = getSessionLock(sessionId);
         if (session == null || session.getSenderSocketId() == null) {
             sendError(sender, "sender not connected");
             return;
         }
 
-        WebSocketSession senderSession = sessionConnections.get(sessionId).get("sender");
+        WebSocketSession senderSession = socketIdToSession.get(session.getSenderSocketId());
         if (senderSession != null && senderSession.isOpen()) {
             message.setFrom(sender.getId());
             message.setTo(senderSession.getId());
-            senderSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
-            LoggerUtil.audit("peer-ready signal routed to sender for sessionId=" + sessionId);
+
+            if (session.isMultiRecipient()) {
+                if (message.getData() == null) {
+                    message.setData(new HashMap<>());
+                }
+                @SuppressWarnings("unchecked")
+                Map<String, Object> data = (Map<String, Object>) message.getData();
+                data.put("receiverId", sender.getId());
+                message.setData(data);
+            }
+
+            synchronized (lock) {
+                senderSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
+            }
+            LoggerUtil.audit("peer-ready signal routed to sender for sessionId=" + sessionId +
+                    (session.isMultiRecipient() ? ",receiverId=" + sender.getId() : ""));
         }
     }
 
     private void handleTransferStart(String sessionId, SignalingMessage message) throws IOException {
         sessionService.updateSessionStatus(sessionId, SessionStatus.TRANSFERRING);
-
-        Map<String, WebSocketSession> connections = sessionConnections.get(sessionId);
-        if (connections != null) {
-            for (WebSocketSession session : connections.values()) {
-                if (session.isOpen()) {
-                    session.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
-                }
-            }
-        }
-
+        broadcastToSession(sessionId, message);
         LoggerUtil.audit("file transfer started for sessionId=" + sessionId);
     }
 
     private void handleTransferComplete(String sessionId, SignalingMessage message) throws IOException {
         sessionService.updateSessionStatus(sessionId, SessionStatus.CONNECTED);
-
-        Map<String, WebSocketSession> connections = sessionConnections.get(sessionId);
-        if (connections != null) {
-            for (WebSocketSession session : connections.values()) {
-                if (session.isOpen()) {
-                    session.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
-                }
-            }
-        }
-
+        broadcastToSession(sessionId, message);
         LoggerUtil.audit("file transfer completed for sessionId=" + sessionId);
     }
 
+    private void handleBroadcastStatus(String sessionId, SignalingMessage message) throws IOException {
+        Session session = sessionService.getSession(sessionId);
+        Object lock = getSessionLock(sessionId);
+        if (session == null) {
+            return;
+        }
+
+        Map<String, Object> statusData = new HashMap<>();
+        statusData.put("totalReceivers", session.getReceiverSocketIds() != null ? session.getReceiverSocketIds().size() : 0);
+        statusData.put("receiverProgress", session.getReceiverProgress());
+
+        message.setData(statusData);
+
+        String senderSocketId = session.getSenderSocketId();
+        if (senderSocketId != null) {
+            WebSocketSession senderSession = socketIdToSession.get(senderSocketId);
+            if (senderSession != null && senderSession.isOpen()) {
+                synchronized (lock) {
+                    senderSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
+                }
+            }
+        }
+    }
+
+    private void broadcastToSession(String sessionId, SignalingMessage message) throws IOException {
+        Session session = sessionService.getSession(sessionId);
+        Object lock = getSessionLock(sessionId);
+        if (session == null) {
+            return;
+        }
+
+        String senderSocketId = session.getSenderSocketId();
+        if (senderSocketId != null) {
+            WebSocketSession senderSession = socketIdToSession.get(senderSocketId);
+            if (senderSession != null && senderSession.isOpen()) {
+                senderSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
+            }
+        }
+
+        if (session.isMultiRecipient()) {
+            Set<String> receiverSocketIds = session.getReceiverSocketIds();
+            if (receiverSocketIds != null) {
+                for (String receiverSocketId : receiverSocketIds) {
+                    WebSocketSession receiverSession = socketIdToSession.get(receiverSocketId);
+                    if (receiverSession != null && receiverSession.isOpen()) {
+                        synchronized (lock) {
+                            receiverSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
+                        }
+                    }
+                }
+            }
+        } else {
+            String receiverSocketId = session.getReceiverSocketId();
+            if (receiverSocketId != null) {
+                WebSocketSession receiverSession = socketIdToSession.get(receiverSocketId);
+                if (receiverSession != null && receiverSession.isOpen()) {
+                    synchronized (lock) {
+                        receiverSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
+                    }
+                }
+            }
+        }
+    }
+
     private void notifyPeerDisconnected(String sessionId) {
-        Map<String, WebSocketSession> connections = sessionConnections.get(sessionId);
-        if (connections != null) {
-            SignalingMessage disconnectMsg = SignalingMessage.builder()
-                    .type("peer-disconnected")
+        Session session = sessionService.getSession(sessionId);
+        if (session == null) {
+            return;
+        }
+
+        SignalingMessage disconnectMsg = SignalingMessage.builder()
+                .type("peer-disconnected")
+                .sessionId(sessionId)
+                .message("the other peer has disconnected")
+                .timestamp(System.currentTimeMillis())
+                .build();
+
+        try {
+            broadcastToSession(sessionId, disconnectMsg);
+        } catch (IOException e) {
+            LoggerUtil.error(WebSocketHandler.class, "Failed to send disconnect notification: " + e.getMessage(), e);
+        }
+    }
+
+    private void notifyReceiverDisconnected(String sessionId, String receiverSocketId) {
+        Session session = sessionService.getSession(sessionId);
+        if (session == null) {
+            return;
+        }
+
+        WebSocketSession senderSession = socketIdToSession.get(session.getSenderSocketId());
+
+        if (senderSession != null && senderSession.isOpen()) {
+            SignalingMessage msg = SignalingMessage.builder()
+                    .type("receiver-disconnected")
                     .sessionId(sessionId)
-                    .message("the other peer has disconnected")
+                    .data(Map.of("receiverId", receiverSocketId))
+                    .message("A receiver disconnected")
                     .timestamp(System.currentTimeMillis())
                     .build();
 
-            for (WebSocketSession session : connections.values()) {
-                if (session.isOpen()) {
-                    try {
-                        session.sendMessage(new TextMessage(objectMapper.writeValueAsString(disconnectMsg)));
-                    } catch (IOException e) {
-                        LoggerUtil.error(WebSocketHandler.class, "Failed to send disconnect notification: " + e.getMessage(), e);
-                    }
-                }
+            try {
+                senderSession.sendMessage(
+                        new TextMessage(objectMapper.writeValueAsString(msg))
+                );
+            } catch (IOException e) {
+                LoggerUtil.error(WebSocketHandler.class,
+                        "Failed to send receiver disconnect: " + e.getMessage(), e);
             }
         }
     }

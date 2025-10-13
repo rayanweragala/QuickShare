@@ -13,6 +13,8 @@ export const useSession = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [isBroadcastMode, setIsBroadcastMode] = useState(false);
+  const [activeReceivers, setActiveReceivers] = useState([]);
 
   /**
    * create new session (sender)
@@ -40,6 +42,50 @@ export const useSession = () => {
     }
   }, []);
 
+  /**
+   * create new broadcast session (sender - multi-recipient)
+   */
+  const createBroadcastSession = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await apiService.createBroadcastSession();
+      setSession(response);
+      setIsBroadcastMode(true);
+      logger.success("Broadcast session created:", response.sessionId);
+
+      await socketService.connect(response.sessionId, "sender");
+      setIsConnected(true);
+
+      startReceiverPolling(response.sessionId);
+
+      return response;
+    } catch (err) {
+      logger.error("Failed to create broadcast session:", err);
+      setError(err.message || "Failed to create broadcast session");
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * poll for active receivers (only for broadcast mode)
+   */
+  const startReceiverPolling = useCallback((sessionId) => {
+    const pollInterval = setInterval(async () => {
+      try {
+        const receiversData = await apiService.getActiveReceivers(sessionId);
+        setActiveReceivers(receiversData.receiverIds || []);
+      } catch (err) {
+        logger.error("Failed to fetch receivers:", err);
+        clearInterval(pollInterval);
+      }
+    }, 2000);
+
+    return pollInterval;
+  }, []);
   /**
    * join a session (receiver)
    */
@@ -101,6 +147,8 @@ export const useSession = () => {
     try {
       socketService.disconnect();
       setIsConnected(false);
+      setIsBroadcastMode(false);
+      setActiveReceivers([]);
 
       await apiService.deleteSession(session.sessionId);
 
@@ -123,7 +171,10 @@ export const useSession = () => {
     isLoading,
     error,
     isConnected,
+    isBroadcastMode,
+    activeReceivers,
     createSession,
+    createBroadcastSession,
     joinSession,
     getSession,
     endSession,

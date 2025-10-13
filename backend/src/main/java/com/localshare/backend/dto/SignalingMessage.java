@@ -22,4 +22,5 @@ public class SignalingMessage {
     private String to;
     private String message;
     private Long timestamp;
+    private Object data;
 }
