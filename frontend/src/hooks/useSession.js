@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { apiService } from "../services/api.service";
 import { socketService } from "../services/socket.service";
+import { statsService } from "../services/stats.service";
 import { logger } from "../utils/logger";
 
 /**
@@ -32,6 +33,8 @@ export const useSession = () => {
       await socketService.connect(response.sessionId, "sender");
       setIsConnected(true);
 
+      statsService.recordSession('sender');
+
       return response;
     } catch (err) {
       logger.error("Failed to create session:", err);
@@ -59,6 +62,7 @@ export const useSession = () => {
       setIsConnected(true);
 
       startReceiverPolling(response.sessionId);
+      statsService.recordSession('sender');
 
       return response;
     } catch (err) {

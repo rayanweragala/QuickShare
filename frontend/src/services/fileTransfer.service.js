@@ -1,5 +1,6 @@
 import { logger } from "../utils/logger";
 import { webrtcService } from "./webrtc.service";
+import { statsService } from "./stats.service";
 import { chunkFile } from "../utils/file.utils";
 
 /**
@@ -67,6 +68,7 @@ class FileTransferService {
         }
       }
 
+      statsService.recordSession('send');
       await this.sendMetadata(file, receiverIds);
 
       this.chunks = chunkFile(file, CHUNK_SIZE);
@@ -190,6 +192,10 @@ class FileTransferService {
 
     logger.success("File transfer complete");
 
+    if(this.currentFile) {
+      statsService.recordFileTransfer(this.currentFile.name, this.currentFile.size, 'send');
+    }
+
     this.isSending = false;
 
     if (this.onSendComplete) {
@@ -278,6 +284,8 @@ class FileTransferService {
         name: this.fileMetadata.name,
         size: blob.size,
       });
+
+      statsService.recordFileTransfer(this.fileMetadata.name, blob.size, 'receive');
 
       this.isReceiving = false;
 
