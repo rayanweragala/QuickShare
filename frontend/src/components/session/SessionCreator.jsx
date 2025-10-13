@@ -46,13 +46,13 @@ export const SessionCreator = ({ onSessionEnd, isBroadcast = false }) => {
   }, [isConnected, connectionState, initializeConnection]);
 
   useEffect(() => {
-  if (isChannelReady) {
-    setShowTransfer(true);
-    if (!isBroadcastMode) { 
-      setIsReadyToSend(true);
+    if (isChannelReady) {
+      setShowTransfer(true);
+      if (!isBroadcastMode) {
+        setIsReadyToSend(true);
+      }
     }
-  }
-}, [isChannelReady, isBroadcastMode]);
+  }, [isChannelReady, isBroadcastMode]);
 
   useEffect(() => {
     const handlePeerDisconnected = () => {
@@ -161,7 +161,7 @@ export const SessionCreator = ({ onSessionEnd, isBroadcast = false }) => {
               onClick={handleCreateSession}
               isLoading={isLoading}
             >
-              Create Share Session
+              Create Session & Get Code
             </Button>
 
             <div className="mt-6 pt-6 border-t border-neutral-700">
@@ -240,8 +240,9 @@ export const SessionCreator = ({ onSessionEnd, isBroadcast = false }) => {
 
             {isBroadcastMode && (
               <div className="group bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 sm:p-10 hover:bg-neutral-800/70 transition-all duration-300 hover:border-green-500/30 mb-8">
-                <h2 className="text-2xl font-bold text-white mb-6">
-                  Active Receivers ({validReceivers.length})
+                <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                  <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+                  {validReceivers.length} Connected
                 </h2>
 
                 {validReceivers.length === 0 ? (
@@ -268,55 +269,14 @@ export const SessionCreator = ({ onSessionEnd, isBroadcast = false }) => {
                 )}
               </div>
             )}
-
-            <div className="group bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 sm:p-10 hover:bg-neutral-800/70 transition-all duration-300 hover:border-green-500/30 mb-8">
-              <h2 className="text-2xl font-bold text-white mb-6">
-                How it works
-              </h2>
-              <div className="grid sm:grid-cols-3 gap-8">
-                <div className="flex flex-col items-center text-center">
-                  <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
-                    <span className="text-green-400 font-bold text-lg">1</span>
-                  </div>
-                  <h3 className="text-white font-semibold mb-2">
-                    Share the code
-                  </h3>
-                  <p className="text-neutral-400 text-sm">
-                    Others can use this code to join
-                  </p>
-                </div>
-
-                <div className="flex flex-col items-center text-center">
-                  <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
-                    <span className="text-green-400 font-bold text-lg">2</span>
-                  </div>
-                  <h3 className="text-white font-semibold mb-2">
-                    They connect
-                  </h3>
-                  <p className="text-neutral-400 text-sm">
-                    Secure peer-to-peer connection established
-                  </p>
-                </div>
-
-                <div className="flex flex-col items-center text-center">
-                  <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
-                    <span className="text-green-400 font-bold text-lg">3</span>
-                  </div>
-                  <h3 className="text-white font-semibold mb-2">Send files</h3>
-                  <p className="text-neutral-400 text-sm">
-                    Transfer files directly and securely
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
         {!showTransfer && session && validReceivers.length > 0 && (
-          <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-12 text-center animate-fade-in">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/10 rounded-full mb-6">
+          <div className="bg-gradient-to-br from-green-500/10 to-green-600/5 backdrop-blur rounded-2xl border border-green-500/30 p-12 text-center animate-fade-in">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-green-500/20 rounded-full mb-6 animate-pulse">
               <svg
-                className="w-8 h-8 text-green-500"
+                className="w-10 h-10 text-green-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -329,23 +289,23 @@ export const SessionCreator = ({ onSessionEnd, isBroadcast = false }) => {
                 />
               </svg>
             </div>
-            <h3 className="text-2xl font-bold text-white mb-4">
-              {validReceivers.length}{" "}
-              {validReceivers.length === 1 ? "Receiver" : "Receivers"} Connected
+            <h3 className="text-3xl font-bold text-white mb-2">
+              Ready to Send
             </h3>
-            <p className="text-neutral-400 mb-6">
-              Ready to start sending files
+            <p className="text-lg text-green-400 font-semibold mb-6">
+              {validReceivers.length}{" "}
+              {validReceivers.length === 1 ? "device" : "devices"} waiting
             </p>
             <Button
               variant="primary"
               size="lg"
               onClick={handleStartTransfer}
-              className="min-w-[200px]"
+              className="min-w-[200px] text-lg py-4"
             >
-              Start Sending Files
+              Send Files Now
             </Button>
-            <p className="text-sm text-neutral-500 mt-4">
-              More receivers can join before you start
+            <p className="text-sm text-neutral-400 mt-4">
+              More devices can join anytime
             </p>
           </div>
         )}
