@@ -20,25 +20,7 @@ public class SessionResponse {
     private Boolean bothConnected;
     private String createdAt;
     private String qrCodeData;
-
-    public static SessionResponse created(String sessionId, String qrCodeData){
-        return SessionResponse.builder()
-                .sessionId(sessionId)
-                .status(SessionStatus.WAITING)
-                .message("session created successfully")
-                .bothConnected(false)
-                .qrCodeData(qrCodeData)
-                .build();
-    }
-
-    public static SessionResponse joined(String sessionId){
-        return SessionResponse.builder()
-                .sessionId(sessionId)
-                .status(SessionStatus.CONNECTED)
-                .message("successfully joined session")
-                .bothConnected(true)
-                .build();
-    }
+    private Boolean isMultiRecipient;
 
     public static SessionResponse error(String message){
         return SessionResponse.builder()
