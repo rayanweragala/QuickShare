@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { roomAPI } from "../../api/hooks/useRooms"
 import { Plus, Lock, Globe, Clock, Users, X } from 'lucide-react';
 import { ErrorMessage } from "../common";
+import { getOrCreateUserId } from "../../utils/userManager";
 
 const CreateRoomModal = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
@@ -13,8 +14,10 @@ const CreateRoomModal = ({ isOpen, onClose, onSuccess }) => {
     maxParticipants: 10,
   });
 
+  const [userId] = useState(getOrCreateUserId());
+
   const createMutation = useMutation({
-    mutationFn: roomAPI.createRoom,
+    mutationFn: (data) => roomAPI.createRoom({ ...data, userId }), 
     onSuccess: (data) => {
       onSuccess(data);
       onClose();

@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "ROOM_PARTICIPANTS", indexes = {
         @Index(name = "idx_room_socket_id", columnList = "ROOM_ID,SOCKET_ID", unique = true),
+        @Index(name = "idx_room_user_id", columnList = "ROOM_ID,USER_ID"),
         @Index(name = "idx_room_online", columnList = "ROOM_ID,IS_ONLINE"),
         @Index(name = "idx_joined_at", columnList = "JOINED_AT"),
         @Index(name = "idx_last_seen_at", columnList = "LAST_SEEN_AT")
@@ -32,6 +33,9 @@ public class RoomParticipant {
 
     @Column(name= "SOCKET_ID", nullable = false)
     private String socketId;
+
+    @Column(name= "USER_ID")
+    private String userId;
 
     @Column(name= "ANIMAL_NAME",nullable = false)
     private String animalName;
@@ -58,7 +62,9 @@ public class RoomParticipant {
     private LocalDateTime joinedAt;
 
     @UpdateTimestamp
+    @Column(name = "LAST_SEEN_AT")
     private LocalDateTime lastSeenAt;
 
+    @Column(name = "LEFT_AT")
     private LocalDateTime leftAt;
 }
