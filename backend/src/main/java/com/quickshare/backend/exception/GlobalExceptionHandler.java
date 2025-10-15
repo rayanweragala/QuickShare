@@ -53,4 +53,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<SessionResponse> handleRuntimeException(RuntimeException exception, WebRequest request){
+        LoggerUtil.warn(GlobalExceptionHandler.class, "runtime error, message=" + exception.getMessage() + ",for path=" + request.getDescription(false));
+        SessionResponse response = SessionResponse.error(exception.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
 }

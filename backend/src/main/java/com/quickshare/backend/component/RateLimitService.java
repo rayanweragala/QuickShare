@@ -13,7 +13,7 @@ public class RateLimitService {
     private RedisTemplate<String, String> redisTemplate;
     private static final int MAX_DAILY_REQUESTS = 1000;
     private static final int MAX_HOURLY_REQUESTS = 100;
-    private static final int MAX_ROOM_CREATIONS_PER_DAY = 5;
+    private static final int MAX_ROOM_CREATIONS_PER_DAY = 50;
     private static final int MAX_FILE_UPLOADS_PER_DAY = 50;
 
     /**
