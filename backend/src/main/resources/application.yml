@@ -24,12 +24,10 @@ spring:
     name: QuickShare-Backend
 
   datasource:
-#    url: ${DATABASE_URL}
-#    username: ${DATABASE_USER}
-#    password: ${DATABASE_PASSWORD}
-    url: jdbc:postgresql://ep-aged-tooth-adnlnafx-pooler.c-2.us-east-1.aws.neon.tech/quickshare_db?sslmode=require&channel_binding=require
-    username: neondb_owner
-    password: npg_9cTSKlrMX6EC
+   url: ${DATABASE_URL}
+   username: ${DATABASE_USER}
+   password: ${DATABASE_PASSWORD}
+
     hikari:
       maximum-pool-size: 5
       minimum-idle: 1
@@ -67,17 +65,11 @@ spring:
     static-path-pattern: /**
 
 r2:
-#  account-id: ${R2_ACCOUNT_ID}
-#  access-key-id: ${R2_ACCESS_KEY_ID}
-#  secret-access-key: ${R2_SECRET_ACCESS_KEY}
-#  bucket-name: ${R2_BUCKET_NAME}
-#  endpoint: ${R2_ENDPOINT}
-
-  account-id: 927e8cc75b7618bd85e8a953623d2ecb
-  access-key-id: 16dfc9c217cbd334960b0056c7c73461
-  secret-access-key: f8864c5ea73262574dd2a0649bf64fe310ccd05d76b8956abd93f240be0708a0
-  bucket-name: localshare-storage
-  endpoint: https://927e8cc75b7618bd85e8a953623d2ecb.r2.cloudflarestorage.com
+ account-id: ${R2_ACCOUNT_ID}
+ access-key-id: ${R2_ACCESS_KEY_ID}
+ secret-access-key: ${R2_SECRET_ACCESS_KEY}
+ bucket-name: ${R2_BUCKET_NAME}
+ endpoint: ${R2_ENDPOINT}
 
 file:
   max-size: 1073741824
