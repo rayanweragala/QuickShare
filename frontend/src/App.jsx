@@ -1,16 +1,71 @@
 import { useState, useEffect } from "react";
-import { Button } from "./components/common";
 import { SessionCreator, SessionJoiner } from "./components/session";
 import { statsService } from "./services/stats.service";
+import CreateRoomModal from "../src/components/rooms/CreateRoomModal";
+import { RoomSuccessModal } from "../src/components/rooms/RoomSuccessModal";
+import { PublicRoomsList } from "./components/rooms/PublicRoomsList";
+import {
+  Users,
+  Plus,
+  Search,
+  Upload,
+  Download,
+  Lock,
+  Globe,
+  Clock,
+  ArrowRight,
+  TrendingUp,
+  Eye,
+  Send,
+  Layers
+} from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { roomAPI } from "../src/api/hooks/useRooms";
+import { Modal } from "../src/components/common/Modal";
 
 function App() {
   const [view, setView] = useState("home");
-
+  const [mainMode, setMainMode] = useState("quick"); 
   const [stats, setStats] = useState({
     totalFiles: 0,
     todayFiles: 0,
     totalSessions: 0,
   });
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showPublicRooms, setShowPublicRooms] = useState(false);
+  const [createdRoom, setCreatedRoom] = useState(null);
+
+  const { data: roomsData, isLoading: roomsLoading } = useQuery({
+    queryKey: ["featuredRooms"],
+    queryFn: () => roomAPI.getPublicRooms(0, 6),
+    refetchInterval: 10000,
+  });
+
+  const featuredRooms = roomsData?.content || [];
+
+  const handleRoomCreated = (room) => {
+    setCreatedRoom(room);
+    setShowSuccessModal(true);
+  };
+
+  const handleJoinRoom = (roomCode) => {
+    console.log("Joining room:", roomCode);
+    setShowPublicRooms(false);
+  };
+
+  const formatTimeRemaining = (expiresAt) => {
+    const now = new Date();
+    const expires = new Date(expiresAt);
+    const hours = Math.floor((expires - now) / (1000 * 60 * 60));
+    const minutes = Math.floor(
+      ((expires - now) % (1000 * 60 * 60)) / (1000 * 60)
+    );
+
+    if (hours > 24) return `${Math.floor(hours / 24)}d left`;
+    if (hours > 0) return `${hours}h left`;
+    return `${minutes}m left`;
+  };
 
   useEffect(() => {
     const updateStats = () => {
@@ -48,23 +103,23 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 flex items-center justify-center p-4">
-      <main className="w-full max-w-6xl">
+      <main className="w-full max-w-6xl" role="main">
         <header
           className="text-center animate-fade-in"
           style={{ marginBottom: "4rem" }}
         >
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white mb-4 flex items-center justify-center gap-4">
-            Local<span className="text-green-500">Share</span>
-            <span className="text-xs font-semibold bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full border border-blue-500/30 animate-pulse">
+            Quick<span className="text-green-500">Share</span>
+            <span className="text-xs font-semibold bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full border border-blue-500/30">
               BETA
             </span>
           </h1>
-          <p className="text-neutral-300 text-xl sm:text-2xl">
+          <p className="text-neutral-300 text-xl sm:text-2xl leading-relaxed">
             Secure peer-to-peer file sharing
           </p>
 
           <section className="mb-12 mt-4">
-            <div className="flex items-center justify-center gap-8 text-center">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-center">
               <div
                 className="group cursor-help"
                 title="Total files shared across all sessions"
@@ -72,14 +127,12 @@ function App() {
                 <div className="text-3xl font-bold text-green-500 mb-1 group-hover:scale-110 transition-transform">
                   {stats.totalFiles.toLocaleString()}
                 </div>
-                <div className="text-sm text-neutral-400 font-medium">
+                <div className="text-sm text-neutral-300 font-medium">
                   Files Shared
                 </div>
                 <div className="text-xs text-neutral-500 mt-1">All Time</div>
               </div>
-
-              <div className="h-8 w-px bg-neutral-700"></div>
-
+              <div className="hidden sm:block h-8 w-px bg-neutral-700"></div>
               <div
                 className="group cursor-help"
                 title="Files shared in the last 24 hours"
@@ -87,14 +140,12 @@ function App() {
                 <div className="text-3xl font-bold text-blue-500 mb-1 group-hover:scale-110 transition-transform">
                   {stats.todayFiles.toLocaleString()}
                 </div>
-                <div className="text-sm text-neutral-400 font-medium">
+                <div className="text-sm text-neutral-300 font-medium">
                   Shared Today
                 </div>
                 <div className="text-xs text-neutral-500 mt-1">Last 24h</div>
               </div>
-
-              <div className="h-8 w-px bg-neutral-700"></div>
-
+              <div className="hidden sm:block h-8 w-px bg-neutral-700"></div>
               <div
                 className="group cursor-help"
                 title="Active sharing sessions"
@@ -102,7 +153,7 @@ function App() {
                 <div className="text-3xl font-bold text-purple-500 mb-1 group-hover:scale-110 transition-transform">
                   {stats.totalSessions.toLocaleString()}
                 </div>
-                <div className="text-sm text-neutral-400 font-medium">
+                <div className="text-sm text-neutral-300 font-medium">
                   Sessions
                 </div>
                 <div className="text-xs text-neutral-500 mt-1">Active</div>
@@ -111,113 +162,323 @@ function App() {
           </section>
         </header>
 
-        <section
-          className="grid lg:grid-cols-2 gap-8"
-          style={{ marginBottom: "4rem" }}
-          aria-label="File sharing options"
-        >
-          <article className="group bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 sm:p-10 hover:bg-neutral-800/70 transition-all duration-300 hover:border-green-500/30 animate-fade-in">
-            <div className="mb-8">
-              <div
-                className="w-14 h-14 bg-green-500/10 rounded-xl flex items-center justify-center mb-4"
-                aria-hidden="true"
-              >
-                <svg
-                  className="w-8 h-8 text-green-500"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-label="Upload icon"
-                >
-                  <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-              </div>
-              <h2 className="text-3xl font-bold text-white">Send Files</h2>
-              <p className="text-neutral-400 text-lg mt-2">
-                Share anything, securely
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              <Button
-                onClick={() => setView("sender")}
-                size="lg"
-                fullWidth
-                className="bg-green-600/80 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200"
-                aria-label="Create one-to-one file sharing session"
-              >
-                Share to 1 Device
-              </Button>
-
-              <Button
-                onClick={() => setView("broadcast")}
-                variant="outline"
-                size="lg"
-                fullWidth
-                className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10"
-                aria-label="Create broadcast session for multiple receivers"
-              >
-                Share to Multiple Devices
-              </Button>
-            </div>
-
-            <p className="text-sm text-neutral-500 mt-6">
-              Get a code to share with others
-            </p>
-          </article>
-
-          <article className="group bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 sm:p-10 hover:bg-neutral-800/70 transition-all duration-300 hover:border-green-500/30 animate-fade-in">
-            <div className="mb-8">
-              <div
-                className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center mb-4"
-                aria-hidden="true"
-              >
-                <svg
-                  className="w-8 h-8 text-blue-500"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-label="Download icon"
-                >
-                  <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                </svg>
-              </div>
-              <h2 className="text-3xl font-bold text-white">Receive Files</h2>
-              <p className="text-neutral-400 text-lg mt-2">
-                Join a share session
-              </p>
-            </div>
-
-            <Button
-              onClick={() => setView("receiver")}
-              className="w-full bg-green-600/80 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200"
-              aria-label="Join file sharing session with code"
+        <section className="mb-8">
+          <div className="flex items-center justify-center gap-4 mb-6">
+            <button
+              onClick={() => setMainMode('quick')}
+              className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                mainMode === 'quick'
+                  ? 'bg-green-600 text-white shadow-lg shadow-green-600/50 scale-105'
+                  : 'bg-neutral-800/50 text-neutral-400 hover:bg-neutral-800 hover:text-white'
+              }`}
             >
-              Join with Code
-            </Button>
+              <div className="flex items-center gap-2">
+                <ArrowRight className="w-5 h-5" />
+                <span>Quick Transfer</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setMainMode('rooms')}
+              className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                mainMode === 'rooms'
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/50 scale-105'
+                  : 'bg-neutral-800/50 text-neutral-400 hover:bg-neutral-800 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                <span>Room Sharing</span>
+              </div>
+            </button>
+          </div>
 
-            <p className="text-sm text-neutral-500 mt-6">
-              Enter a code to receive files
-            </p>
-          </article>
+          {mainMode === 'quick' && (
+            <div className="bg-gradient-to-r from-green-800/30 via-emerald-800/30 to-teal-800/30 backdrop-blur rounded-2xl border border-green-500/30 p-6 sm:p-8 animate-fade-in">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
+                  <ArrowRight className="w-6 h-6 text-green-400" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">
+                    Quick Transfer
+                  </h2>
+                  <p className="text-neutral-300 text-sm">
+                    Fast peer-to-peer file sharing with unique codes
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-6">
+                <div className="group relative overflow-hidden bg-gradient-to-br from-green-600/20 to-emerald-600/20 hover:from-green-600/30 hover:to-emerald-600/30 border-2 border-green-500/40 hover:border-green-500/60 rounded-xl p-6 transition-all duration-300">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-3xl group-hover:bg-green-500/20 transition-all" />
+                  <div className="relative">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
+                        <Upload className="w-5 h-5 text-green-400" />
+                      </div>
+                      <h3 className="text-xl font-bold text-white">
+                        Send Files
+                      </h3>
+                    </div>
+                    <p className="text-neutral-300 text-sm mb-5">
+                      Share anything, securely
+                    </p>
+
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => setView("sender")}
+                        className="w-full bg-green-600/80 hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2"
+                      >
+                        <Send className="w-4 h-4" />
+                        <span>Send to Device</span>
+                      </button>
+
+                      <button
+                        onClick={() => setView("broadcast")}
+                        className="w-full bg-green-600/40 hover:bg-green-600/60 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2"
+                      >
+                        <Layers className="w-4 h-4" />
+                        <span>Share to Multiple</span>
+                      </button>
+                    </div>
+
+                    <p className="text-xs text-green-400 mt-4 flex items-center gap-1">
+                      <Lock className="w-3 h-3" />
+                      Get a code to share with others
+                    </p>
+                  </div>
+                </div>
+
+                <div className="group relative overflow-hidden bg-gradient-to-br from-blue-600/20 to-cyan-600/20 hover:from-blue-600/30 hover:to-cyan-600/30 border-2 border-blue-500/40 hover:border-blue-500/60 rounded-xl p-6 transition-all duration-300">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all" />
+                  <div className="relative">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                        <Download className="w-5 h-5 text-blue-400" />
+                      </div>
+                      <h3 className="text-xl font-bold text-white">
+                        Receive Files
+                      </h3>
+                    </div>
+                    <p className="text-neutral-300 text-sm mb-5">
+                      Join a share session
+                    </p>
+
+                    <button
+                      onClick={() => setView("receiver")}
+                      className="w-full bg-blue-600/80 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2"
+                    >
+                      <span>Join with Code</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+
+                    <p className="text-xs text-blue-400 mt-4 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Enter a code to receive files
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {mainMode === 'rooms' && (
+            <div className="bg-gradient-to-r from-purple-800/30 via-blue-800/30 to-indigo-800/30 backdrop-blur rounded-2xl border border-purple-500/30 p-6 sm:p-8 animate-fade-in">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center">
+                  <Users className="w-6 h-6 text-purple-400" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">
+                    Room Sharing
+                  </h2>
+                  <p className="text-neutral-300 text-sm">
+                    Collaborative group sharing with persistent rooms
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-6">
+                <div className="group relative overflow-hidden bg-gradient-to-br from-purple-600/20 to-indigo-600/20 hover:from-purple-600/30 hover:to-indigo-600/30 border-2 border-purple-500/40 hover:border-purple-500/60 rounded-xl p-6 transition-all duration-300">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl group-hover:bg-purple-500/20 transition-all" />
+                  <div className="relative">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                        <Plus className="w-5 h-5 text-purple-400" />
+                      </div>
+                      <h3 className="text-xl font-bold text-white">
+                        Create Room
+                      </h3>
+                    </div>
+                    <p className="text-neutral-300 text-sm mb-5">
+                      Set up a new sharing room
+                    </p>
+
+                    <button
+                      onClick={() => setShowCreateModal(true)}
+                      className="w-full bg-purple-600/80 hover:bg-purple-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2"
+                    >
+                      <span>Create Room</span>
+                    </button>
+
+                    <p className="text-xs text-purple-400 mt-4 flex items-center gap-1">
+                      <Lock className="w-3 h-3" />
+                      Customizable privacy settings
+                    </p>
+                  </div>
+                </div>
+
+                <div className="group relative overflow-hidden bg-gradient-to-br from-blue-600/20 to-cyan-600/20 hover:from-blue-600/30 hover:to-cyan-600/30 border-2 border-blue-500/40 hover:border-blue-500/60 rounded-xl p-6 transition-all duration-300">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all" />
+                  <div className="relative">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                        <Search className="w-5 h-5 text-blue-400" />
+                      </div>
+                      <h3 className="text-xl font-bold text-white">
+                        Browse Rooms
+                      </h3>
+                    </div>
+                    <p className="text-neutral-300 text-sm mb-5">
+                      Join public sharing rooms
+                    </p>
+
+                    <button
+                      onClick={() => setShowPublicRooms(true)}
+                      className="w-full bg-blue-600/80 hover:bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2"
+                    >
+                      <span>Browse Rooms</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+
+                    <p className="text-xs text-blue-400 mt-4 flex items-center gap-1">
+                      <Globe className="w-3 h-3" />
+                      Discover active sessions
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
 
+        {mainMode === 'rooms' && (
+        <section className="mb-8 bg-gradient-to-r from-orange-800/20 via-amber-800/20 to-yellow-800/20 backdrop-blur rounded-2xl border border-orange-500/30 p-6 sm:p-8 animate-fade-in">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-orange-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white">Active Rooms</h2>
+                <p className="text-neutral-300 text-sm">
+                  Join live sharing sessions right now
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowPublicRooms(true)}
+              className="hidden sm:flex items-center gap-2 px-4 py-2 bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 rounded-lg transition-all"
+            >
+              <span className="text-sm font-medium">View All</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {roomsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-8 h-8 border-4 border-neutral-700 border-t-orange-500 rounded-full animate-spin" />
+            </div>
+          ) : featuredRooms.length === 0 ? (
+            <div className="text-center py-12 text-neutral-400">
+              <Globe className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>No active rooms yet. Be the first to create one!</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {featuredRooms.slice(0, 6).map((room) => (
+                  <div
+                    key={room.id}
+                    onClick={() => handleJoinRoom(room.roomCode)}
+                    className="group relative overflow-hidden bg-gradient-to-br from-neutral-800/50 to-neutral-900/50 hover:from-neutral-800/70 hover:to-neutral-900/70 border border-neutral-700 hover:border-orange-500/50 rounded-xl p-5 transition-all duration-300 cursor-pointer hover:scale-105"
+                  >
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 rounded-full blur-2xl group-hover:bg-orange-500/10 transition-all" />
+
+                    <div className="relative">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="font-bold text-white text-lg mb-1 group-hover:text-orange-400 transition-colors line-clamp-1">
+                            {room.roomName}
+                          </h3>
+                          <p className="text-xs text-neutral-400">
+                            by {room.creatorAnimalName}
+                          </p>
+                        </div>
+                        <div className="px-2 py-1 bg-orange-500/20 text-orange-300 text-xs font-mono font-bold rounded">
+                          {room.roomCode}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-400 mb-3">
+                        <div className="flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5 text-green-400" />
+                          <span className="text-white font-medium">
+                            {room.participantCount}
+                          </span>
+                          <span>/{room.maxParticipants || "∞"}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Upload className="w-3.5 h-3.5 text-blue-400" />
+                          <span className="text-white font-medium">
+                            {room.fileCount}
+                          </span>
+                          <span>files</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Eye className="w-3.5 h-3.5 text-purple-400" />
+                          <span className="text-white font-medium">
+                            {room.totalVisitors}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-3 border-t border-neutral-700/50">
+                        <div className="flex items-center gap-1 text-xs text-neutral-500">
+                          <Clock className="w-3 h-3" />
+                          <span>{formatTimeRemaining(room.expiresAt)}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs font-medium text-orange-400 group-hover:text-orange-300">
+                          <span>Join</span>
+                          <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setShowPublicRooms(true)}
+                className="sm:hidden w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 rounded-lg transition-all"
+              >
+                <span className="font-medium">View All Rooms</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </>
+          )}
+        </section>
+        )}
+
         <section
-          className="bg-neutral-800/30 backdrop-blur rounded-2xl border border-neutral-700 p-8 sm:p-12"
-          style={{ marginBottom: "3rem" }}
+          className="mb-8 bg-neutral-800/30 backdrop-blur rounded-2xl border border-neutral-700 p-8 sm:p-12"
           aria-labelledby="features-heading"
         >
           <h2
             id="features-heading"
             className="text-3xl font-bold text-white mb-10 text-center"
           >
-            Why LocalShare?
+            Why QuickShare?
           </h2>
 
           <div className="grid sm:grid-cols-3 gap-8">
@@ -303,11 +564,10 @@ function App() {
 
         <footer className="text-center space-y-3">
           <a
-            href="https://github.com/rayanweragala/LocalShare"
+            href="https://github.com/rayanweragala/QuickShare"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral-800 hover:bg-neutral-700 transition-all duration-200 mb-2"
-            aria-label="GitHub Profile"
           >
             <svg
               className="w-5 h-5 text-neutral-400 hover:text-white transition-colors"
@@ -322,6 +582,27 @@ function App() {
           </p>
         </footer>
       </main>
+
+      <CreateRoomModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSuccess={handleRoomCreated}
+      />
+
+      <RoomSuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        room={createdRoom}
+      />
+
+      <Modal
+        isOpen={showPublicRooms}
+        onClose={() => setShowPublicRooms(false)}
+        title="Public Rooms"
+        size="lg"
+      >
+        <PublicRoomsList onJoinRoom={handleJoinRoom} />
+      </Modal>
     </div>
   );
 }

@@ -35,7 +35,7 @@ FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
 #create logs directory
-RUN mkdir -p /var/log/local-share
+RUN mkdir -p /var/log/quick-share
 
 #copy jar from build stage
 COPY --from=backend-build /app/target/*.jar app.jar

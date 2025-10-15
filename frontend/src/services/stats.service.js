@@ -7,7 +7,7 @@ class StatsService {
 
   loadStats() {
     try {
-      const stored = localStorage.getItem("localshare_stats");
+      const stored = localStorage.getItem("QuickShare_stats");
       if (stored) {
         const parsed = JSON.parse(stored);
         if (!parsed.dailyStats) {
@@ -30,7 +30,7 @@ class StatsService {
 
   saveStats() {
     try {
-      localStorage.setItem("localshare_stats", JSON.stringify(this.stats));
+      localStorage.setItem("QuickShare_stats", JSON.stringify(this.stats));
     } catch (error) {
       logger.error("failed to save stats", error);
     }
