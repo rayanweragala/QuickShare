@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { roomAPI } from "../../api/hooks/useRooms";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { ErrorMessage } from "../common";
 import { getOrCreateUserId, generateSessionId } from "../../utils/userManager";
+import { useRoomWebSocket } from "../../api/hooks/useRoomWebSocket";
 import FileCard from "../common/FileCard";
 import {
   X,
   Users,
   Upload,
-  Download,
   Settings,
   Trash2,
   Copy,
@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import FileUploadModal from "./FileUploadModal";
 import { useFileDownload, useFileDelete } from "../../api/hooks/useFileUpload";
+import { logger } from "../../utils/logger";
 
 const RoomModal = ({ isOpen, onClose, roomCode }) => {
   const queryClient = useQueryClient();
@@ -36,9 +37,10 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
   const [socketId] = useState(generateSessionId());
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const hasJoinedRef = useRef(false);
 
   const downloadMutation = useFileDownload();
-  const deleteMutation = useFileDelete(roomCode);
+  const deleteMutation = useFileDelete(roomCode || "");
 
   const joinMutation = useMutation({
     mutationFn: () => roomAPI.joinRoom(roomCode, socketId, userId),
@@ -56,17 +58,29 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
   });
 
   useEffect(() => {
-    if (isOpen && roomCode && !joinMutation.data && !joinMutation.isPending) {
+    if (isOpen && roomCode && joinMutation && !hasJoinedRef.current) {
+      hasJoinedRef.current = true;
       joinMutation.mutate();
     }
-  }, [isOpen, roomCode]);
+
+    return () => {
+      if (!isOpen) {
+        hasJoinedRef.current = false;
+      }
+    };
+  }, [isOpen, roomCode, joinMutation]);
+
+  const { isConnected: wsConnected } = useRoomWebSocket(
+    roomCode,
+    joinMutation.data?.room?.id,
+    isOpen && !!joinMutation.data?.room?.id
+  );
 
   const { data: roomData } = useQuery({
     queryKey: ["roomDetails", joinMutation.data?.room?.id],
     queryFn: () => roomAPI.getRoomDetails(joinMutation.data.room.id),
     enabled: !!joinMutation.data?.room?.id && isOpen,
-    refetchInterval: 5000,
-    refetchIntervalInBackground: false,
+    staleTime: 60000,
     initialData: joinMutation.data,
   });
 
@@ -101,17 +115,22 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
 
   const handleDownload = async (file) => {
     try {
-      await downloadMutation.mutateAsync({
-        roomCode,
-        fileId: file.fileId,
-        fileName: file.fileName,
-      });
+      if (downloadMutation) {
+        await downloadMutation.mutateAsync({
+          roomCode,
+          fileId: file.fileId,
+          fileName: file.fileName,
+        });
+      }
     } catch (error) {
       logger.error("Download failed:", error);
     }
   };
-
   const handleDeleteFile = async (fileId) => {
+    if (!roomCode || !deleteMutation) {
+      logger.error("Cannot delete: room not loaded");
+      return;
+    }
     try {
       await deleteMutation.mutateAsync({ fileId });
     } catch (error) {
@@ -134,7 +153,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
 
   if (!isOpen) return null;
 
-  if (joinMutation.isPending) {
+  if (joinMutation?.isPending) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
         <div className="bg-gradient-to-br from-neutral-900 to-neutral-800 rounded-2xl border border-neutral-700 p-8 shadow-2xl">
@@ -147,7 +166,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
     );
   }
 
-  if (joinMutation.isError) {
+  if (joinMutation?.isError) {
     return (
       <ErrorMessage
         message={joinMutation.error?.message || "Failed to Join Room"}
@@ -460,8 +479,8 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                           onDownload={handleDownload}
                           onDelete={handleDeleteFile}
                           canDelete={canDelete}
-                          isDownloading={downloadMutation.isPending}
-                          isDeleting={deleteMutation.isPending}
+                          isDownloading={downloadMutation?.isPending || false}
+                          isDeleting={deleteMutation?.isPending || false}
                         />
                       );
                     })}

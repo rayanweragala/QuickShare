@@ -16,6 +16,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -34,6 +35,9 @@ public class WebSocketHandler extends TextWebSocketHandler {
     private final Map<WebSocketSession, Map<String, String>> sessionMetadata = new ConcurrentHashMap<>();
     private final Map<String, Object> sessionLocks = new ConcurrentHashMap<>();
 
+    private final Map<String,Set<String >> roomSubscriptions = new ConcurrentHashMap<>();
+    private final Map<String,String > socketToRoom = new ConcurrentHashMap<>();
+
     private Object getSessionLock(String sessionId) {
         return sessionLocks.computeIfAbsent(sessionId, k -> new Object());
     }
@@ -42,6 +46,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
         String query = session.getUri().getQuery();
         String sessionId = extractParam(query, "sessionId");
         String role = extractParam(query, "role");
+        String roomCode = extractParam(query, "roomCode");
 
         if (sessionId != null && role != null) {
             Map<String, String> metadata = new HashMap<>();
@@ -64,14 +69,31 @@ public class WebSocketHandler extends TextWebSocketHandler {
             }
 
             LoggerUtil.audit("WebSocket connected for sessionId=" + sessionId + ",role=" + role + ",socketId=" + session.getId());
+        } else if (roomCode != null) {
+            Map<String , String> metaData = new HashMap<>();
+            metaData.put("type","room");
+            metaData.put("roomCode",roomCode);
+
+            socketIdToSession.put(session.getId(),session);
+
+            roomSubscriptions.computeIfAbsent(roomCode, k-> ConcurrentHashMap.newKeySet()).add(session.getId());
+            socketToRoom.put(session.getId(),roomCode);
+
+            LoggerUtil.audit("Websocket connected for room subscriptions, roomCode=" + roomCode + ",socketId=" + session.getId());
         }
     }
+
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         try {
             Map<String, String> metadata = sessionMetadata.get(session);
             if (metadata == null) {
+                return;
+            }
+
+            if("room".equals(metadata.get("type"))){
+                handleRoomMessage(session,message);
                 return;
             }
 
@@ -113,10 +135,43 @@ public class WebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    private void handleRoomMessage(WebSocketSession session, TextMessage message) throws IOException {
+        try {
+            Map<String, Object> msg = objectMapper.readValue(message.getPayload(), Map.class);
+            String type = (String) msg.get("type");
+
+            if("ping".equals(type)) {
+                Map<String , Object> pong = new HashMap<>();
+                pong.put("type","pong");
+                pong.put("timestamp",System.currentTimeMillis());
+                session.sendMessage(new TextMessage(objectMapper.writeValueAsString(pong)));
+            }
+        }catch (Exception e){
+            LoggerUtil.error(WebSocketHandler.class,"Error handling room message=" + e.getMessage(),e);
+        }
+    }
+
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         Map<String, String> metadata = sessionMetadata.remove(session);
         if (metadata != null) {
+
+            if("room".equals(metadata.get("type"))){
+                String roomCode = metadata.get("roomCode");
+                socketIdToSession.remove(session.getId());
+
+                Set<String > subscribers = roomSubscriptions.get(roomCode);
+                if(subscribers != null) {
+                    subscribers.remove(session.getId());
+                    if(subscribers.isEmpty()){
+                        roomSubscriptions.remove(roomCode);
+                    }
+                }
+                socketToRoom.remove(session.getId());
+                LoggerUtil.audit("Websocket disconnected for room, roomCode=" + roomCode);
+                return;
+            }
+
             String sessionId = metadata.get("sessionId");
             String role = metadata.get("role");
 
@@ -439,5 +494,39 @@ public class WebSocketHandler extends TextWebSocketHandler {
             }
         }
         return null;
+    }
+
+    public void broadcastRoomUpdate(String roomCode, Object updateData) {
+        Set<String> subscribers = roomSubscriptions.get(roomCode);
+        if(subscribers == null || subscribers.isEmpty()){
+            return;
+        }
+
+        Map<String, Object> message = new HashMap<>();
+        message.put("type", "room-update");
+        message.put("roomCode", roomCode);
+        message.put("data", updateData);
+        message.put("timestamp", System.currentTimeMillis());
+
+        try {
+            String jsonMessage = objectMapper.writeValueAsString(message);
+            TextMessage textMessage = new TextMessage(jsonMessage);
+
+            for(String socketId: subscribers){
+                WebSocketSession wsSession = socketIdToSession.get(socketId);
+                if(wsSession != null && wsSession.isOpen()) {
+                    try{
+                        synchronized (wsSession){
+                            wsSession.sendMessage(textMessage);
+                        }
+                    }catch (IOException e){
+                        LoggerUtil.error(WebSocketHandler.class,"Failed to send room update to socket=" + socketId,e);
+                    }
+                }
+            }
+            LoggerUtil.dev("Room update broadcast to=" + subscribers.size() + ",subscribers for room=" + roomCode);
+        }catch (Exception e){
+            LoggerUtil.error(WebSocketHandler.class, "Failed to broadcast room update=" + e.getMessage(), e);
+        }
     }
 }
