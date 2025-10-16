@@ -77,4 +77,7 @@ public class RoomResponse {
 
     @Schema(description = "Indicates whether the room has reached participant capacity")
     private Boolean isFull;
+
+    @Schema(description = "Indicates whether the room is marked as featured for user", defaultValue = "false")
+    private Boolean isFeatured;
 }

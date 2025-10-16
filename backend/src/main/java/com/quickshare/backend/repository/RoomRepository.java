@@ -93,4 +93,6 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
             @Param("sortBy") String sortBy,
             Pageable pageable
     );
+    @Query("SELECT r FROM Room r WHERE r.creatorUserId = :userId AND r.isFeatured = true AND r.status = :status  ORDER BY r.createdAt DESC")
+    List<Room> findFeaturedRoomsByUserId(@Param("userId") String userId, @Param("status") RoomStatus status);
 }
