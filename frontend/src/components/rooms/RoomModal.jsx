@@ -35,6 +35,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
   const [userId] = useState(getOrCreateUserId());
   const [socketId] = useState(generateSessionId());
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const downloadMutation = useFileDownload();
   const deleteMutation = useFileDelete(roomCode);
@@ -65,6 +66,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
     queryFn: () => roomAPI.getRoomDetails(joinMutation.data.room.id),
     enabled: !!joinMutation.data?.room?.id && isOpen,
     refetchInterval: 5000,
+    refetchIntervalInBackground: false,
     initialData: joinMutation.data,
   });
 
@@ -509,11 +511,22 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                     onClick={() => {
                       const shareLink = `https://app.quickshare.com/room/${room.roomCode}`;
                       navigator.clipboard.writeText(shareLink);
+                      setCopiedLink(true);
+                      setTimeout(() => setCopiedLink(false), 2000);
                     }}
                     className="w-full px-4 py-3 bg-neutral-800/50 hover:bg-neutral-700 border border-neutral-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
                   >
-                    <Share2 className="w-4 h-4" />
-                    Share Room Link
+                    {copiedLink ? (
+                      <>
+                        <Check className="w-4 h-4 text-green-400" />
+                        <span className="text-green-400">Link Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Share2 className="w-4 h-4" />
+                        Share Room Link
+                      </>
+                    )}
                   </button>
 
                   <button
