@@ -39,12 +39,12 @@ public class FileController {
             @Valid @RequestBody UploadFileRequest request,
             HttpServletRequest httpRequest) {
 
-        String userUuid = httpRequest.getHeader("X-User-UUID");
-        if (userUuid == null) {
-            userUuid = httpRequest.getHeader("X-User-Session");
+        String userId = httpRequest.getHeader("X-User-ID");
+        if (userId == null) {
+            userId = httpRequest.getHeader("X-User-Session");
         }
-        if (userUuid == null) {
-            userUuid = "anonymous";
+        if (userId == null) {
+            userId = "anonymous";
         }
 
         String socketId = httpRequest.getHeader("X-Socket-Id");
@@ -55,10 +55,10 @@ public class FileController {
         }
 
         LoggerUtil.audit("file upload initiation: " + request.getFileName() +
-                " by user: " + userUuid);
+                " by user: " + userId);
 
         FileUploadResponse response = fileUploadService.initiateFileUpload(
-                roomCode, request, userUuid, socketId, ipAddress
+                roomCode, request, userId, socketId, ipAddress
         );
 
         return ResponseEntity.ok(response);
@@ -78,11 +78,19 @@ public class FileController {
             @PathVariable String fileId,
             HttpServletRequest httpRequest) {
 
+        String userId = httpRequest.getHeader("X-User-ID");
+        if (userId == null) {
+            userId = httpRequest.getHeader("X-User-Session");
+        }
+        if (userId == null) {
+            userId = "anonymous";
+        }
+
         String socketId = httpRequest.getHeader("X-Socket-Id");
 
         LoggerUtil.audit("completing file upload: " + fileId);
 
-        FileInfo fileInfo = fileUploadService.completeFileUpload(roomCode, fileId, socketId);
+        FileInfo fileInfo = fileUploadService.completeFileUpload(roomCode, fileId,userId);
 
         return ResponseEntity.ok(fileInfo);
     }
@@ -133,9 +141,17 @@ public class FileController {
             @PathVariable String fileId,
             HttpServletRequest httpRequest) {
 
+        String userId = httpRequest.getHeader("X-User-ID");
+        if (userId == null) {
+            userId = httpRequest.getHeader("X-User-Session");
+        }
+        if (userId == null) {
+            userId = "anonymous";
+        }
+
         String socketId = httpRequest.getHeader("X-Socket-Id");
 
-        fileUploadService.deleteFile(roomCode, fileId, socketId);
+        fileUploadService.deleteFile(roomCode, fileId, userId);
 
         return ResponseEntity.ok(Map.of("message", "file deleted successfully"));
     }
@@ -153,9 +169,17 @@ public class FileController {
             @PathVariable String fileId,
             HttpServletRequest httpRequest) {
 
+        String userId = httpRequest.getHeader("X-User-ID");
+        if (userId == null) {
+            userId = httpRequest.getHeader("X-User-Session");
+        }
+        if (userId == null) {
+            userId = "anonymous";
+        }
+
         String socketId = httpRequest.getHeader("X-Socket-Id");
 
-        fileUploadService.cancelUpload(fileId, socketId);
+        fileUploadService.cancelUpload(fileId, userId);
 
         return ResponseEntity.ok(Map.of("message", "upload cancelled"));
     }

@@ -11,12 +11,6 @@ import java.util.Optional;
 
 @Repository
 public interface RoomParticipantRepository extends JpaRepository<RoomParticipant, Long> {
-    Optional<RoomParticipant> findByRoomIdAndSocketId(@Param("roomId") Long roomId,
+    Optional<RoomParticipant> findByRoomIdAndUserId(@Param("roomId") Long roomId,
                                                       @Param("socketId") String socketId);
-    @Query("SELECT p FROM RoomParticipant p WHERE p.room.id = :roomId AND p.isOnline = true")
-    List<RoomParticipant> findActiveParticipants(@Param("roomId") Long roomId);
-    @Query("SELECT p FROM RoomParticipant p WHERE p.room.id = :roomId")
-    List<RoomParticipant> findByRoomId(@Param("roomId") Long roomId);
-    @Query("SELECT COUNT(p) FROM RoomParticipant p WHERE p.room.id = :roomId AND p.isOnline = true")
-    Integer countActiveParticipants(@Param("roomId") Long roomId);
 }

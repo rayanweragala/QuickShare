@@ -54,6 +54,7 @@ public class RoomController {
             @PathVariable String roomCode,
             @Valid @RequestBody JoinRoomRequest request,
             HttpServletRequest httpRequest) {
+
         String userUuid = httpRequest.getHeader("X-User-UUID");
         if (userUuid == null) {
             userUuid = httpRequest.getHeader("X-User-Session");
@@ -114,8 +115,16 @@ public class RoomController {
     public ResponseEntity<Void> leaveRoom(
             @PathVariable Long roomId,
             HttpServletRequest httpRequest) {
+
+        String userUuid = httpRequest.getHeader("X-User-UUID");
+        if (userUuid == null) {
+            userUuid = httpRequest.getHeader("X-User-Session");
+        }
+        if (userUuid == null) {
+            userUuid = "anonymous";
+        }
         String socketId = (String) httpRequest.getAttribute("socketId");
-        roomService.leaveRoom(roomId, socketId);
+        roomService.leaveRoom(roomId, userUuid);
         return ResponseEntity.noContent().build();
     }
 
@@ -131,16 +140,8 @@ public class RoomController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        Pageable pageable = PageRequest.of(page,size, getSortOrder(sortBy));
+        Pageable pageable = PageRequest.of(page,size);
         return roomService.searchRoomsAdvanced(query,minParticipants,maxParticipants,minFiles,hasSpace,sortBy,pageable);
     }
 
-    private Sort getSortOrder(String sortBy) {
-        return switch (sortBy) {
-            case "popular" -> Sort.by(Sort.Direction.DESC, "totalVisitors");
-            case "mostFiles" -> Sort.by(Sort.Direction.DESC, "fileCount");
-            case "leastCrowded" -> Sort.by(Sort.Direction.ASC, "participantCount");
-            default -> Sort.by(Sort.Direction.DESC, "createdAt");
-        };
-    }
 }
