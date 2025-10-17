@@ -32,3 +32,4 @@ frontend/src/.env*
 *.swp
 *.tmp
 .~lock.*
+

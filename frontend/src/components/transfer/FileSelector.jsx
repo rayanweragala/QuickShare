@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Card, Button } from "../common";
+import { Upload, Zap } from "lucide-react";
 
 export const FileSelector = ({ onFileSelect }) => {
   const fileInputRef = useRef(null);
@@ -37,91 +37,54 @@ export const FileSelector = ({ onFileSelect }) => {
 
   return (
     <div
-      className={`group bg-neutral-800/50 backdrop-blur rounded-2xl border transition-all duration-300 p-8 sm:p-10 cursor-pointer ${
-        isDragging 
-          ? "border-green-500 bg-neutral-800/70" 
-          : "border-neutral-700 hover:bg-neutral-800/70 hover:border-green-500/30"
+      className={`relative group cursor-pointer transition-all duration-300 ${
+        isDragging ? 'scale-[1.02]' : ''
       }`}
       onClick={handleClick}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <input
-        ref={fileInputRef}
-        type="file"
-        onChange={handleFileChange}
-        className="hidden"
-      />
+      <div className={`absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-600/20 rounded-2xl blur-2xl opacity-0 transition-opacity duration-500 ${
+        isDragging ? 'opacity-100' : 'group-hover:opacity-100'
+      }`} />
       
-      <div className="text-center py-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/10 rounded-2xl mb-4 border border-green-500/20">
-          <svg
-            className="w-8 h-8 text-green-500"
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
+      <div className={`relative bg-zinc-900/80 backdrop-blur-md border rounded-2xl p-8 transition-all duration-300 ${
+        isDragging 
+          ? 'border-green-500 bg-zinc-900' 
+          : 'border-zinc-800 hover:bg-zinc-900 hover:border-green-500/50'
+      }`}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+        
+        <div className="text-center">
+          <div className={`inline-flex items-center justify-center w-16 h-16 rounded-xl mb-4 transition-all ${
+            isDragging 
+              ? 'bg-gradient-to-br from-green-400 to-emerald-600 scale-110' 
+              : 'bg-green-500/10 border border-green-500/20 group-hover:scale-105'
+          }`}>
+            <Upload className={`w-8 h-8 transition-all ${
+              isDragging ? 'text-black' : 'text-green-400'
+            }`} />
+          </div>
+          
+          <h3 className="text-xl font-bold text-white mb-2">
+            {isDragging ? "Drop file here" : "Choose a file"}
+          </h3>
+          
+          <p className="text-zinc-400 text-sm mb-6">
+            Drag & drop or click to browse
+          </p>
+          
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-500/10 text-green-400 rounded-lg text-sm border border-green-500/30">
+            <Zap className="w-4 h-4" />
+            <span>No size limits</span>
+          </div>
         </div>
-        
-        <h3 className="text-2xl font-bold text-white mb-2">
-          {isDragging ? "Drop file here" : "Choose a file to send"}
-        </h3>
-        
-        <p className="text-neutral-400 text-sm mb-6">
-          Drag and drop or click to browse
-        </p>
-        
-        <button className="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl">
-          Select File
-        </button>
-        
-        <p className="text-xs text-neutral-500 mt-6">
-          No file size limits • Direct peer-to-peer transfer
-        </p>
-      </div>
-    </div>
-  );
-};
-
-export const TransferStatus = ({ isSending, isReceiving, progress }) => {
-  return (
-    <div className="flex items-center gap-3 p-4 bg-neutral-800/50 rounded-xl border border-neutral-700">
-      <div className="flex-shrink-0">
-        {progress < 100 ? (
-          <div className="w-5 h-5 border-2 border-neutral-700 border-t-green-500 rounded-full animate-spin" />
-        ) : (
-          <svg
-            className="w-5 h-5 text-green-500"
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path d="M5 13l4 4L19 7" />
-          </svg>
-        )}
-      </div>
-      
-      <div className="flex-1">
-        <p className="text-sm font-medium text-white">
-          {isSending && progress < 100 && 'Transferring file...'}
-          {isReceiving && progress < 100 && 'Receiving file...'}
-          {progress === 100 && 'Transfer complete'}
-        </p>
-        <p className="text-xs text-neutral-400 mt-1">
-          {progress < 100
-            ? 'Keep this window open until transfer completes'
-            : 'You can close this window now'
-          }
-        </p>
       </div>
     </div>
   );

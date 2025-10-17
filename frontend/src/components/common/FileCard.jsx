@@ -1,0 +1,272 @@
+import { useState } from "react";
+import {
+  Download,
+  Trash2,
+  FileText,
+  Image as ImageIcon,
+  Video,
+  Music,
+  FileArchive,
+  File,
+  MoreVertical,
+  Copy,
+  ExternalLink,
+  Loader2,
+} from "lucide-react";
+
+const FileCard = ({
+  file,
+  onDownload,
+  onDelete,
+  canDelete,
+  isDownloading,
+  isDeleting,
+  uploaderDetails,
+  isCurrentUserUploader 
+}) => {
+  const [showMenu, setShowMenu] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+
+  const getFileIcon = (fileType) => {
+    if (!fileType) return <File className="w-6 h-6" />;
+    
+    if (fileType.startsWith("image/"))
+      return <ImageIcon className="w-6 h-6 text-blue-400" />;
+    if (fileType.startsWith("video/"))
+      return <Video className="w-6 h-6 text-purple-400" />;
+    if (fileType.startsWith("audio/"))
+      return <Music className="w-6 h-6 text-pink-400" />;
+    if (fileType.includes("zip") || fileType.includes("rar"))
+      return <FileArchive className="w-6 h-6 text-orange-400" />;
+    if (fileType.includes("pdf"))
+      return <FileText className="w-6 h-6 text-red-400" />;
+    return <FileText className="w-6 h-6 text-green-400" />;
+  };
+
+  const getFileColor = (fileType) => {
+    if (!fileType) return "from-zinc-500/20 to-zinc-600/20";
+    
+    if (fileType.startsWith("image/"))
+      return "from-blue-500/20 to-blue-600/20";
+    if (fileType.startsWith("video/"))
+      return "from-purple-500/20 to-purple-600/20";
+    if (fileType.includes("zip") || fileType.includes("rar"))
+      return "from-orange-500/20 to-orange-600/20";
+    if (fileType.includes("pdf"))
+      return "from-red-500/20 to-red-600/20";
+    return "from-green-500/20 to-emerald-600/20";
+  };
+
+  const formatBytes = (bytes) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+  };
+
+  const formatTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now - date) / 1000);
+
+    if (seconds < 60) return "just now";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  };
+
+  const handleCopyLink = () => {
+    if (file.downloadUrl) {
+      navigator.clipboard.writeText(file.downloadUrl);
+    }
+    setShowMenu(false);
+  };
+
+  const isThisFileDownloading = isDownloading;
+
+  const UploaderAvatar = uploaderDetails ? (
+    <div 
+      className="flex items-center gap-2 cursor-default"
+      title={isCurrentUserUploader ? 'You uploaded this' : `Uploaded by ${uploaderDetails.animalName}`}
+    >
+      <div 
+        className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0"
+        style={{
+          backgroundColor: `${uploaderDetails.avatarColor}20`,
+          color: uploaderDetails.avatarColor,
+        }}
+      >
+        {uploaderDetails.animalIcon}
+      </div>
+      <span className="text-xs font-medium text-zinc-400">
+        {isCurrentUserUploader ? 'You' : uploaderDetails.animalName}
+      </span>
+    </div>
+  ) : (
+    <span className="text-xs text-zinc-500">Uploader Unknown</span>
+  );
+
+  const cardContainerClasses = `flex flex-col p-4 space-y-3 
+    ${isCurrentUserUploader ? 'items-end' : 'items-start'}
+  `;
+  
+  const fileContentClasses = `flex items-start gap-4 w-full 
+    ${isCurrentUserUploader ? 'flex-row-reverse' : 'flex-row'}
+  `;
+
+  return (
+    <div 
+      className={`group relative bg-zinc-800/50 rounded-xl border hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/10 transition-all duration-300 w-full 
+        ${isCurrentUserUploader ? 'border-green-500/30' : 'border-zinc-700'}
+      `}
+    >
+      <div className={cardContainerClasses}>
+        
+        {/* 1. Uploader Avatar */}
+        <div className="flex w-full">
+            {isCurrentUserUploader 
+                ? <div className="ml-auto">{UploaderAvatar}</div> 
+                : <div className="mr-auto">{UploaderAvatar}</div>}
+        </div>
+
+
+        {/* 2. File Content (Icon, Name, Details) */}
+        <div className={fileContentClasses}>
+          <div
+            className={`w-14 h-14 bg-gradient-to-br ${getFileColor(
+              file.fileType
+            )} rounded-xl flex items-center justify-center flex-shrink-0 border border-white/5 group-hover:scale-105 transition-transform duration-300`}
+          >
+            {getFileIcon(file.fileType)}
+          </div>
+
+          <div className={`flex-1 min-w-0 ${isCurrentUserUploader ? 'text-right' : 'text-left'}`}>
+            <div className={`flex items-start gap-2 ${isCurrentUserUploader ? 'flex-row-reverse justify-end' : 'flex-row justify-start'}`}>
+              
+              <div className="flex-1 min-w-0"> 
+                <h4 className="font-semibold text-white truncate text-base mb-1" title={file.fileName}>
+                  {file.fileName}
+                </h4>
+                <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 ${isCurrentUserUploader ? 'justify-end' : 'justify-start'}`}>
+                  <span className="flex items-center gap-1">
+                    <span className="w-1 h-1 bg-zinc-500 rounded-full"></span>
+                    {formatBytes(file.fileSize)}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-1 h-1 bg-zinc-500 rounded-full"></span>
+                    {formatTimeAgo(file.uploadedAt)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="relative flex-shrink-0"> 
+                <button
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="p-1 hover:bg-zinc-700 rounded-lg text-zinc-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+
+                {showMenu && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setShowMenu(false)}
+                    />
+                    <div className="absolute right-0 top-8 z-20 w-48 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden">
+                      <button
+                        onClick={handleCopyLink}
+                        className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
+                      >
+                        <Copy className="w-4 h-4" />
+                        Copy Link
+                      </button>
+                      <button
+                        onClick={() => {
+                          window.open(file.downloadUrl, "_blank");
+                          setShowMenu(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Open in New Tab
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className={`flex items-center gap-2 mt-3 ${isCurrentUserUploader ? 'justify-end' : 'justify-start'}`}>
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-zinc-700/50 rounded-md">
+                <Download className="w-3 h-3 text-green-400" />
+                <span className="text-xs font-medium text-zinc-300">
+                  {file.downloadCount} downloads
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full pt-4 border-t border-zinc-700">
+          <button
+            onClick={() => onDownload(file)}
+            disabled={isThisFileDownloading}
+            className="flex-1 px-4 py-2 bg-green-500/10 hover:bg-green-500/20 border border-green-400/50 disabled:bg-zinc-700 text-green-400 font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+          >
+            {isThisFileDownloading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Downloading...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                Download
+              </>
+            )}
+          </button>
+
+          {canDelete && (
+            <>
+              {deleteConfirm ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      onDelete(file.fileId);
+                      setDeleteConfirm(false);
+                    }}
+                    disabled={isDeleting}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-zinc-700 text-white font-semibold rounded-lg transition-colors text-sm"
+                  >
+                    {isDeleting ? "Deleting..." : "Confirm"}
+                  </button>
+                  <button
+                    onClick={() => setDeleteConfirm(false)}
+                    className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white font-semibold rounded-lg transition-colors text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setDeleteConfirm(true)}
+                  className="px-4 py-2 hover:bg-red-500/20 border border-zinc-700 hover:border-red-500/30 rounded-lg text-zinc-400 hover:text-red-400 transition-all"
+                  title="Delete file"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default FileCard;

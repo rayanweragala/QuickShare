@@ -1,6 +1,6 @@
 {
-  "name": "LocalShare - Secure P2P File Sharing",
-  "short_name": "LocalShare",
+  "name": "QuickShare - Secure P2P File Sharing",
+  "short_name": "QuickShare",
   "description": "Share files instantly and securely between devices",
   "start_url": "/",
   "display": "standalone",

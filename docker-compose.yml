@@ -2,7 +2,7 @@ services:
   # Redis
   redis:
     image: redis:7-alpine
-    container_name: localshare-redis
+    container_name: quickshare-redis
     ports:
       - "6379:6379"
     volumes:
@@ -14,20 +14,24 @@ services:
       retries: 5
     restart: unless-stopped
     networks:
-      - localshare-network
+      - quickshare-network
 
   # Backend
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: localshare-backend
+    container_name: quickshare-backend
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     environment:
       - REDIS_URL=redis://redis:6379
       - SERVER_PORT=8080
       - SOCKETIO_PORT=8080
+      - TZ=Asia/Colombo
+      - JAVA_OPTS=-Duser.timezone=Asia/Colombo
     volumes:
       - backend-logs:/var/log/local-share
     depends_on:
@@ -41,7 +45,7 @@ services:
       start_period: 10s
     restart: unless-stopped
     networks:
-      - localshare-network
+      - quickshare-network
 
 volumes:
   redis-data:
@@ -50,5 +54,5 @@ volumes:
     driver: local
 
 networks:
-  localshare-network:
+  quickshare-network:
     driver: bridge
