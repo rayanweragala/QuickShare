@@ -19,6 +19,7 @@ public class CacheService {
         evictCache("rooms",roomId);
         evictCache("roomDetails",roomId);
         evictCache("publicRooms","all");
+        evictCache("privateRooms","all");
         evictCache("roomParticipants",roomId);
         evictCache("roomFiles",roomId);
     }

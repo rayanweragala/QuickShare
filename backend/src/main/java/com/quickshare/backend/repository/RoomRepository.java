@@ -26,8 +26,19 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
                                @Param("status") RoomStatus status,
                                Pageable pageable);
 
+    @Query("SELECT r FROM Room r WHERE r.roomVisibility = :visibility AND r.status = :status ORDER BY r.lastActivityAt DESC")
+    Page<Room> findPrivateRooms(@Param("visibility") RoomVisibility visibility,
+                               @Param("status") RoomStatus status,
+                               Pageable pageable);
+
     @Query("SELECT r FROM Room r WHERE r.roomVisibility = :visibility AND r.status = :status AND r.roomName ILIKE %:search% ORDER BY r.lastActivityAt DESC")
     Page<Room> searchPublicRooms(@Param("visibility") RoomVisibility visibility,
+                                 @Param("status") RoomStatus status,
+                                 @Param("search") String search,
+                                 Pageable pageable);
+
+    @Query("SELECT r FROM Room r " + "WHERE r.roomVisibility = :visibility " + "AND r.status = :status " + "AND (LOWER(r.roomName) LIKE LOWER(CONCAT('%', :search, '%')) " + "OR LOWER(r.roomCode) LIKE LOWER(CONCAT('%', :search, '%'))) " + "ORDER BY r.lastActivityAt DESC")
+    Page<Room> searchPrivateRooms(@Param("visibility") RoomVisibility visibility,
                                  @Param("status") RoomStatus status,
                                  @Param("search") String search,
                                  Pageable pageable);
