@@ -45,12 +45,12 @@ public class RoomService {
     private final WebSocketHandler webSocketHandler;
     @Transactional
     @CacheEvict(value = {"publicRooms","rooms","privateRooms"}, allEntries = true)
-    public RoomResponse createRoom(CreateRoomRequest request, String userUuid, String ipAddress) {
-        if(!rateLimitService.canCreateRoom(userUuid)) {
+    public RoomResponse createRoom(CreateRoomRequest request, String userId, String ipAddress) {
+        if(!rateLimitService.canCreateRoom(userId)) {
             throw new RuntimeException("room creation limit exceeded for today");
         }
 
-        usageLimitService.trackRoomCreation(userUuid,ipAddress);
+        usageLimitService.trackRoomCreation(userId,ipAddress);
         String roomCode = stringUtilities.generateUniqueRoomCode();
         var animalIdentity = AnimalNameGenerator.generateRandomAnimal();
 
@@ -97,9 +97,17 @@ public class RoomService {
                 .build();
 
         room.addParticipant(creatorParticipant);
-        roomRepository.save(room);
+        Room savedRoom = roomRepository.save(room);
         cacheService.updateRoomInCache(room.getId(),RoomMapper.mapToRoomResponse(room));
-        return RoomMapper.mapToRoomResponse(room);
+        RoomResponse response = RoomMapper.mapToRoomResponse(savedRoom);
+        webSocketHandler.broadcastPublicRoomsUpdate();
+        if (Boolean.TRUE.equals(request.getIsFeatured())) {
+            List<RoomResponse> featuredRooms = getFeaturedRoomsForUser(request.getUserId());
+            webSocketHandler.broadcastFeaturedRoomsToUser(request.getUserId(), featuredRooms);
+            LoggerUtil.audit("broadcasting featured rooms update after room creation for userId=" + request.getUserId());
+        }
+
+        return response;
     }
 
     @Transactional
@@ -154,7 +162,7 @@ public class RoomService {
             room.addParticipant(roomParticipant);
             room.setTotalVisitors(room.getTotalVisitors() + 1);
 
-            LoggerUtil.audit("New user joined room=" + userId + " with session=" + socketId + ", isCreator=" + isCreator);
+            LoggerUtil.audit("new user joined room=" + userId + " with session=" + socketId + ", isCreator=" + isCreator);
         }
 
         room.updateActivity();
@@ -167,12 +175,8 @@ public class RoomService {
             cacheService.evictPublicRoomsCache();
         }
         RoomDetailsResponse response = roomCacheService.getRoomDetails(room.getId());
-
-        try{
-            webSocketHandler.broadcastRoomUpdate(roomCode,response);
-        }catch (Exception e) {
-            LoggerUtil.error(RoomService.class,"Failed to broadcast room update after join=" + e.getMessage(), e);
-        }
+        webSocketHandler.broadcastRoomUpdate(roomCode, response);
+        webSocketHandler.broadcastPublicRoomsUpdate();
 
         return response;
     }
@@ -231,11 +235,11 @@ public class RoomService {
 
     @Transactional
     @CacheEvict(value = {"roomDetails", "roomParticipants", "publicRooms", "rooms", "privateRooms"}, key = "#roomId")
-    public void leaveRoom(Long roomId, String userUuid) {
+    public void leaveRoom(Long roomId, String userId) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("room not found"));
 
-        RoomParticipant participant = participantRepository.findByRoomIdAndUserId(roomId, userUuid)
+        RoomParticipant participant = participantRepository.findByRoomIdAndUserId(roomId, userId)
                 .orElseThrow(() -> new RuntimeException("participant not found"));
 
         participant.setLeftAt(LocalDateTime.now());
@@ -246,26 +250,27 @@ public class RoomService {
 
         roomRepository.save(room);
 
-        try{
-            RoomDetailsResponse updatedRoom = getRoomDetails(roomId);
-            webSocketHandler.broadcastRoomUpdate(room.getRoomCode(), updatedRoom);
-        }catch (Exception e){
-            LoggerUtil.error(RoomService.class,"Failed to broadcast room update after leave=" + e.getMessage(), e);
-        }
+        RoomDetailsResponse updatedRoom = getRoomDetails(roomId);
+        webSocketHandler.broadcastRoomUpdate(room.getRoomCode(), updatedRoom);
+        webSocketHandler.broadcastPublicRoomsUpdate();
     }
 
     @Transactional
     @CacheEvict(value = {"rooms", "roomDetails", "roomParticipants", "publicRooms", "roomFiles", "privateRooms"}, key = "#roomId")
-    public void deleteRoom(Long roomId, String userUuid) {
+    public void deleteRoom(Long roomId, String userId) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("room not found"));
 
         room.setStatus(RoomStatus.DELETED);
         roomRepository.save(room);
+        webSocketHandler.broadcastPublicRoomsUpdate();
+        List<RoomResponse> featuredRooms = getFeaturedRoomsForUser(userId);
+        webSocketHandler.broadcastFeaturedRoomsToUser(userId, featuredRooms);
     }
 
 
-    @Scheduled(cron = "0 0 * * * ?")
+    @Transactional
+    @Scheduled(cron = "0 0/5 * * * ?")
     @CacheEvict(value = {"rooms", "roomDetails", "publicRooms", "roomParticipants", "roomFiles", "privateRooms"}, allEntries = true)
     public void expireExpiredRooms() {
         LocalDateTime now = LocalDateTime.now();
@@ -320,5 +325,33 @@ public class RoomService {
         room.setIsFeatured(isFeatured);
         roomRepository.save(room);
         cacheService.evictRoomCaches(roomId);
+        List<RoomResponse> featuredRooms = getFeaturedRoomsForUser(userId);
+        webSocketHandler.broadcastFeaturedRoomsToUser(userId, featuredRooms);
+        webSocketHandler.broadcastPublicRoomsUpdate();
+    }
+
+    @Transactional
+    @CacheEvict(value = {"publicRooms","rooms","privateRooms"}, allEntries = true)
+    public RoomResponse patchRoomDetails(String userId, Long roomId, RoomUpdateRequest request) {
+            Room room = roomRepository.findById(roomId).orElseThrow(() -> new RuntimeException("room not found"));
+            if(!room.getCreatorUserId().equals(userId)){
+                throw new RuntimeException("only room owner can change room details");
+            }
+
+            if(request.getRoomName() == null || request.getRoomName().isEmpty()){
+                throw new RuntimeException("not a valid room name");
+            }
+            room.setRoomName(request.getRoomName());
+            room.setIsFeatured(request.getIsFeatured());
+
+            Room savedRoom = roomRepository.save(room);
+            cacheService.updateRoomInCache(room.getId(),RoomMapper.mapToRoomResponse(room));
+            RoomResponse response = RoomMapper.mapToRoomResponse(savedRoom);
+            if(savedRoom.getRoomVisibility().equals(RoomVisibility.PUBLIC)){
+                webSocketHandler.broadcastPublicRoomsUpdate();
+            }
+            List<RoomResponse> featuredRooms = getFeaturedRoomsForUser(userId);
+            webSocketHandler.broadcastFeaturedRoomsToUser(userId, featuredRooms);
+            return response;
     }
 }

@@ -36,9 +36,11 @@ public class WebSocketHandler extends TextWebSocketHandler {
 
     private final Map<String,Set<String >> roomSubscriptions = new ConcurrentHashMap<>();
     private final Map<String,String > socketToRoom = new ConcurrentHashMap<>();
-
     private final Map<String, Set<String>> userFeaturedRoomsSubscriptions = new ConcurrentHashMap<>();
     private final Map<String, String> socketToUserId = new ConcurrentHashMap<>();
+
+    private final Map<String, Set<String>> publicRoomSubscriptions = new ConcurrentHashMap<>();
+    private final Map<String,String > socketToPublicRooms = new ConcurrentHashMap<>();
     private final RoomService roomService;
 
     public WebSocketHandler(
@@ -60,6 +62,20 @@ public class WebSocketHandler extends TextWebSocketHandler {
         String roomCode = extractParam(query, "roomCode");
         String userId = extractParam(query, "userId");
         String type = extractParam(query, "type");
+
+        if("public-rooms".equals(type)) {
+            socketIdToSession.put(session.getId(),session);
+
+            Map<String,String> metadata = new HashMap<>();
+            metadata.put("type","public-rooms");
+            sessionMetadata.put(session,metadata);
+
+            publicRoomSubscriptions.
+                    computeIfAbsent("global", k-> ConcurrentHashMap.newKeySet())
+                    .add(session.getId());
+            socketToPublicRooms.put(session.getId(),"global");
+            LoggerUtil.audit("public rooms websocket connected, socketId=" + session.getId());
+        }
 
         if (userId != null && "featured".equals(type)) {
             socketIdToSession.put(session.getId(), session);
@@ -132,6 +148,11 @@ public class WebSocketHandler extends TextWebSocketHandler {
 
             String metadataType = metadata.get("type");
 
+            if("public-rooms".equals(metadataType)){
+                handlePublicRoomMessage(session,message);
+                return;
+            }
+
             if ("room".equals(metadataType)) {
                 handleRoomMessage(session, message);
                 return;
@@ -177,6 +198,22 @@ public class WebSocketHandler extends TextWebSocketHandler {
             }
         } catch (Exception e) {
             LoggerUtil.error(WebSocketHandler.class, "Error handling WebSocket message=" + e.getMessage(), e);
+        }
+    }
+
+    private void handlePublicRoomMessage(WebSocketSession session, TextMessage message) throws  IOException {
+        try{
+            Map<String,Object> msg = objectMapper.readValue(message.getPayload(), Map.class);
+            String type = (String) msg.get("type");
+            if ("ping".equals(type)) {
+                Map<String, Object> pong = new HashMap<>();
+                pong.put("type", "pong");
+                pong.put("timestamp", System.currentTimeMillis());
+                session.sendMessage(new TextMessage(objectMapper.writeValueAsString(pong)));
+            }
+        } catch (Exception e) {
+            LoggerUtil.error(WebSocketHandler.class,
+                    "Error handling public rooms message=" + e.getMessage(), e);
         }
     }
 
@@ -267,6 +304,24 @@ public class WebSocketHandler extends TextWebSocketHandler {
         }
 
         String metadataType = metadata.get("type");
+
+        if ("public-rooms".equals(metadataType)) {
+            socketIdToSession.remove(session.getId());
+
+            String key = socketToPublicRooms.remove(session.getId());
+            if (key != null) {
+                Set<String> subscribers = publicRoomSubscriptions.get(key);
+                if (subscribers != null) {
+                    subscribers.remove(session.getId());
+                    if (subscribers.isEmpty()) {
+                        publicRoomSubscriptions.remove(key);
+                    }
+                }
+            }
+
+            LoggerUtil.audit("Public rooms WebSocket disconnected, socketId=" + session.getId());
+            return;
+        }
 
         if ("featured".equals(metadataType)) {
             String userId = metadata.get("userId");
@@ -551,6 +606,83 @@ public class WebSocketHandler extends TextWebSocketHandler {
         }
     }
 
+    public void broadcastPublicRoomsUpdate() {
+        Set<String> subscribers = publicRoomSubscriptions.get("global");
+        if (subscribers == null || subscribers.isEmpty()) {
+            LoggerUtil.dev("No public rooms subscribers to notify");
+            return;
+        }
+
+        Map<String, Object> message = new HashMap<>();
+        message.put("type", "public-rooms-update");
+        message.put("timestamp", System.currentTimeMillis());
+
+        try {
+            String jsonMessage = objectMapper.writeValueAsString(message);
+            TextMessage textMessage = new TextMessage(jsonMessage);
+
+            int sentCount = 0;
+            for (String socketId : subscribers) {
+                WebSocketSession wsSession = socketIdToSession.get(socketId);
+                if (wsSession != null && wsSession.isOpen()) {
+                    try {
+                        synchronized (wsSession) {
+                            wsSession.sendMessage(textMessage);
+                        }
+                        sentCount++;
+                    } catch (IOException e) {
+                        LoggerUtil.error(WebSocketHandler.class,
+                                "Failed to send public rooms update to socket=" + socketId, e);
+                    }
+                }
+            }
+            LoggerUtil.dev("Public rooms update broadcast to " + sentCount + " subscribers");
+        } catch (Exception e) {
+            LoggerUtil.error(WebSocketHandler.class,
+                    "Failed to broadcast public rooms update=" + e.getMessage(), e);
+        }
+    }
+
+    public void broadcastFeaturedRoomsToUser(String userId, List<RoomResponse> rooms) {
+        Set<String> userSockets = userFeaturedRoomsSubscriptions.get(userId);
+
+        if (userSockets == null || userSockets.isEmpty()) {
+            LoggerUtil.dev("No WebSocket connections for user=" + userId);
+            return;
+        }
+
+        Map<String, Object> message = new HashMap<>();
+        message.put("type", "featured-rooms-update");
+        message.put("data", rooms);
+        message.put("timestamp", System.currentTimeMillis());
+
+        try {
+            String jsonMessage = objectMapper.writeValueAsString(message);
+            TextMessage textMessage = new TextMessage(jsonMessage);
+
+            int sentCount = 0;
+            for (String socketId : userSockets) {
+                WebSocketSession wsSession = socketIdToSession.get(socketId);
+                if (wsSession != null && wsSession.isOpen()) {
+                    try {
+                        synchronized (wsSession) {
+                            wsSession.sendMessage(textMessage);
+                        }
+                        sentCount++;
+                    } catch (IOException e) {
+                        LoggerUtil.error(WebSocketHandler.class,
+                                "Failed to send featured rooms to socket=" + socketId, e);
+                    }
+                }
+            }
+
+            LoggerUtil.dev("Broadcast " + rooms.size() + " featured rooms to " +
+                    sentCount + " WebSocket(s) for user=" + userId);
+        } catch (Exception e) {
+            LoggerUtil.error(WebSocketHandler.class,
+                    "Failed to broadcast featured rooms to user=" + userId + ", error=" + e.getMessage(), e);
+        }
+    }
     private void notifyPeerDisconnected(String sessionId) {
         Session session = sessionService.getSession(sessionId);
         if (session == null) {
