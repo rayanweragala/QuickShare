@@ -24,7 +24,7 @@ public class CacheMonitorAspect {
         String methodName = joinPoint.getSignature().getName();
         Object[] args = joinPoint.getArgs();
 
-        LoggerUtil.info(CacheMonitorAspect.class,"cache operation=" + methodName + ",cache=" + cacheName + ",args=" + Arrays.toString(args));
+        LoggerUtil.audit("cache operation=" + methodName + ",cache=" + cacheName + ",args=" + Arrays.toString(args));
         Object result = joinPoint.proceed(args);
 
         return result;

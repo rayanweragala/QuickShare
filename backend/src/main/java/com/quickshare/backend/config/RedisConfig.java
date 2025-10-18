@@ -27,7 +27,7 @@ public class RedisConfig {
 
     @Bean
     public RedisTemplate<String, Session> sessionRedisTemplate(RedisConnectionFactory redisConnectionFactory) {
-        LoggerUtil.info(RedisConfig.class, "configuring redis template for session storage");
+        LoggerUtil.audit("configuring redis template for session storage");
 
         RedisTemplate<String, Session> redisTemplate = new RedisTemplate<>();
         redisTemplate.setConnectionFactory(redisConnectionFactory);
