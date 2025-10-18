@@ -1,5 +1,5 @@
 ![Release v1.1.0](https://img.shields.io/badge/release-v1.1.0-blue)
-# LocalShare
+# QuickShare
 
 A secure, peer-to-peer file sharing web application that enables instant file transfers between devices without uploading files to any server.
 
@@ -15,7 +15,7 @@ A secure, peer-to-peer file sharing web application that enables instant file tr
 
 ## Overview
 
-LocalShare allows users to share files directly between browsers using WebRTC technology. Files are transferred peer-to-peer, ensuring privacy and speed. The Spring Boot backend serves only as a signaling server for establishing peer connections.
+QuickShare allows users to share files directly between browsers using WebRTC technology. Files are transferred peer-to-peer, ensuring privacy and speed. The Spring Boot backend serves only as a signaling server for establishing peer connections.
 
 **Live Demo:** [https://localshare-15ui.onrender.com/](https://localshare-15ui.onrender.com/)
 
@@ -33,7 +33,7 @@ LocalShare allows users to share files directly between browsers using WebRTC te
 
 ## Architecture
 
-LocalShare uses a hybrid architecture combining client-side WebRTC for file transfers with a lightweight Spring Boot backend for signaling:
+QuickShare uses a hybrid architecture combining client-side WebRTC for file transfers with a lightweight Spring Boot backend for signaling:
 
 <img width="2025" height="694" alt="architecture_diagram" src="https://github.com/user-attachments/assets/a76622c6-368e-40e6-a6fd-0f66c401618b" />
 
@@ -125,7 +125,7 @@ The project was refactored to use Spring Boot's native WebSocket implementation 
 1. Clone the repository
 ```bash
 git clone <repository-url>
-cd LocalShare
+cd QuickShare
 ```
 2. Build and run the entire application
  ```bash
