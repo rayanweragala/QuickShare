@@ -7,10 +7,12 @@ import com.quickshare.backend.dto.room.UploadFileRequest;
 import com.quickshare.backend.entity.Room;
 import com.quickshare.backend.entity.RoomFile;
 import com.quickshare.backend.entity.RoomParticipant;
+import com.quickshare.backend.model.enums.RoomVisibility;
 import com.quickshare.backend.model.enums.SubscriptionTier;
 import com.quickshare.backend.repository.RoomFileRepository;
 import com.quickshare.backend.repository.RoomParticipantRepository;
 import com.quickshare.backend.repository.RoomRepository;
+import com.quickshare.backend.service.CacheService;
 import com.quickshare.backend.util.LoggerUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -30,6 +32,7 @@ public class FileUploadService {
     private final RateLimitService rateLimitService;
     private final UsageLimitService usageLimitService;
     private final RoomParticipantRepository participantRepository;
+    private final CacheService cacheService;
 
     /**
      * PHASE 1: initiate file upload
@@ -38,18 +41,18 @@ public class FileUploadService {
      * - returns URL to frontend for direct upload to R2
      */
     @Transactional
-    public FileUploadResponse initiateFileUpload(String roomCode, UploadFileRequest request, String userUuid, String socketId, String ipAddress) {
+    public FileUploadResponse initiateFileUpload(String roomCode, UploadFileRequest request, String userId, String socketId, String ipAddress) {
 
         LoggerUtil.audit("Initiating file upload: " + request.getFileName() + " to room: " + roomCode);
 
-        if(!rateLimitService.canUploadFile(userUuid)){
+        if(!rateLimitService.canUploadFile(userId)){
             throw new RuntimeException("daily file upload limit exceeded");
         }
 
         Room room = roomRepository.findByRoomCode(roomCode).orElseThrow(() -> new RuntimeException("room not found"));
 
         RoomParticipant participant = participantRepository
-                .findByRoomIdAndSocketId(room.getId(), socketId)
+                .findByRoomIdAndUserId(room.getId(), userId)
                 .orElseThrow(() -> new RuntimeException("You must join the room first"));
 
 
@@ -86,6 +89,7 @@ public class FileUploadService {
                 .cloudFlareUrl("")
                 .uploaderAnimalName(participant.getAnimalName())
                 .uploaderSocketId(socketId)
+                .uploaderUserId(userId)
                 .checksum(request.getChecksum())
                 .isAvailable(false)
                 .expiresAt(room.getExpiresAt())
@@ -93,8 +97,10 @@ public class FileUploadService {
 
         fileRepository.save(pendingFile);
 
-        usageLimitService.trackFileUpload(userUuid,ipAddress);
-        rateLimitService.trackAction(userUuid,"file_upload");
+        cacheService.evictRoomCaches(room.getId());
+
+        usageLimitService.trackFileUpload(userId,ipAddress);
+        rateLimitService.trackAction(userId,"file_upload");
 
         LoggerUtil.audit("Upload URL generated for file: " + fileId);
 
@@ -113,7 +119,7 @@ public class FileUploadService {
      * - updates room storage
      */
     @Transactional
-    public FileInfo completeFileUpload(String roomCode, String fileId, String uploaderSocketId) {
+    public FileInfo completeFileUpload(String roomCode, String fileId, String userId) {
 
         LoggerUtil.audit("Completing file upload: " + fileId);
 
@@ -122,7 +128,7 @@ public class FileUploadService {
         RoomFile file = fileRepository.findByFileId(fileId)
                 .orElseThrow(() -> new RuntimeException("file not found"));
 
-        if (!file.getUploaderSocketId().equals(uploaderSocketId)) {
+        if (!file.getUploaderUserId().equals(userId)) {
             throw new RuntimeException("Unauthorized: You can only complete your own uploads");
         }
 
@@ -146,6 +152,12 @@ public class FileUploadService {
         room.addFiles(file);
         room.updateActivity();
         roomRepository.save(room);
+
+        cacheService.evictRoomCaches(room.getId());
+        cacheService.evictRoomDetails(room.getId());
+        if (room.getRoomVisibility() == RoomVisibility.PUBLIC) {
+            cacheService.evictPublicRoomsCache();
+        }
 
         LoggerUtil.audit("file upload completed: " + fileId + " (" + formatBytes(actualSize) + ")");
 
@@ -199,7 +211,7 @@ public class FileUploadService {
      * delete a file
      */
     @Transactional
-    public void deleteFile(String roomCode, String fileId, String socketId) {
+    public void deleteFile(String roomCode, String fileId, String userId) {
         Room room = roomRepository.findByRoomCode(roomCode)
                 .orElseThrow(() -> new RuntimeException("room not found"));
 
@@ -207,10 +219,10 @@ public class FileUploadService {
                 .orElseThrow(() -> new RuntimeException("file not found"));
 
         RoomParticipant participant = participantRepository
-                .findByRoomIdAndSocketId(room.getId(), socketId)
+                .findByRoomIdAndUserId(room.getId(), userId)
                 .orElse(null);
 
-        boolean isUploader = file.getUploaderSocketId().equals(socketId);
+        boolean isUploader = file.getUploaderUserId().equals(userId);
         boolean isCreator = participant != null && participant.getIsCreator();
 
         if (!isUploader && !isCreator) {
@@ -225,8 +237,13 @@ public class FileUploadService {
 
         room.removeFile(file);
         roomRepository.save(room);
-
         fileRepository.delete(file);
+
+        cacheService.evictRoomCaches(room.getId());
+        cacheService.evictRoomDetails(room.getId());
+        if (room.getRoomVisibility() == RoomVisibility.PUBLIC) {
+            cacheService.evictPublicRoomsCache();
+        }
 
         LoggerUtil.audit("file deleted: " + fileId);
     }
@@ -235,11 +252,13 @@ public class FileUploadService {
     * cancel/cleanup incomplete upload
      */
     @Transactional
-    public void cancelUpload(String fileId, String socketId) {
+    public void cancelUpload(String fileId, String userId) {
         RoomFile file = fileRepository.findByFileId(fileId)
                 .orElseThrow(() -> new RuntimeException("file not found"));
 
-        if (!file.getUploaderSocketId().equals(socketId)) {
+        Room room = file.getRoom();
+
+        if (!file.getUploaderUserId().equals(userId)) {
             throw new RuntimeException("Unauthorized");
         }
 
@@ -252,6 +271,9 @@ public class FileUploadService {
         }
 
         fileRepository.delete(file);
+
+        cacheService.evictRoomCaches(room.getId());
+        cacheService.evictRoomDetails(room.getId());
 
         LoggerUtil.audit("Upload cancelled: " + fileId);
     }

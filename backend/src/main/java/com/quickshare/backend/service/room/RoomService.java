@@ -208,11 +208,11 @@ public class RoomService {
 
     @Transactional
     @CacheEvict(value = {"roomDetails", "roomParticipants", "publicRooms", "rooms"}, key = "#roomId")
-    public void leaveRoom(Long roomId, String socketId) {
+    public void leaveRoom(Long roomId, String userUuid) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("room not found"));
 
-        RoomParticipant participant = participantRepository.findByRoomIdAndSocketId(roomId, socketId)
+        RoomParticipant participant = participantRepository.findByRoomIdAndUserId(roomId, userUuid)
                 .orElseThrow(() -> new RuntimeException("participant not found"));
 
         participant.setLeftAt(LocalDateTime.now());
