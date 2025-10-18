@@ -1,5 +1,6 @@
 package com.quickshare.backend.component;
 
+import com.quickshare.backend.config.CorsConfig;
 import com.quickshare.backend.service.room.UsageLimitService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -10,9 +11,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.util.Arrays;
 import java.util.Base64;
-import java.util.List;
 
 @Component
 public class SecurityInterceptor implements HandlerInterceptor {
@@ -20,13 +19,8 @@ public class SecurityInterceptor implements HandlerInterceptor {
     private RateLimitService rateLimitService;
     @Autowired
     private UsageLimitService usageLimitService;
-
-    private static final List<String> ALLOWED_ORIGINS = Arrays.asList(
-            "http://localhost:5173",
-            "http://localhost:3000",
-            "http://localhost:8080",
-            "https://localshare-15ui.onrender.com"
-    );
+    @Autowired
+    private CorsConfig corsConfig;
 
     @Override
     public boolean preHandle(HttpServletRequest request,
@@ -128,8 +122,9 @@ public class SecurityInterceptor implements HandlerInterceptor {
             return true; // must change this when deploying on live
         }
 
-        return ALLOWED_ORIGINS.stream()
-                .anyMatch(origin::startsWith);
+        final String finalOrigin = origin;
+        return corsConfig.getAllowedOrigins().stream()
+                .anyMatch(finalOrigin::startsWith);
     }
 
     /**

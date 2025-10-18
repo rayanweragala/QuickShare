@@ -1,4 +1,4 @@
-![Release v1.1.0](https://img.shields.io/badge/release-v1.1.0-blue)
+![Release v1.1.0](https://img.shields.io/badge/release-v1.2.0-blue)
 # QuickShare
 
 A secure, peer-to-peer file sharing web application that enables instant file transfers between devices without uploading files to any server.
@@ -31,7 +31,7 @@ A secure, peer-to-peer file sharing web application that enables instant file tr
 
 QuickShare allows users to share files directly between browsers using WebRTC technology. Files are transferred peer-to-peer, ensuring privacy and speed. The Spring Boot backend serves only as a signaling server for establishing peer connections.
 
-**Live Demo:** [https://localshare-15ui.onrender.com/](https://localshare-15ui.onrender.com/)
+**Live Demo:** [[https://quickshare-xuck.onrender.com/](https://quickshare-xuck.onrender.com/)]
 
 ## Key Features
 
