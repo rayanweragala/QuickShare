@@ -15,8 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.*;
 
 /**
  * service for session management
@@ -79,83 +78,126 @@ public class SessionService {
     /**
      * join an existing session as a receiver
      */
-    public Session joinSession(String sessionId, String receiverSocketId, String receiverIp) {
-        Session session = sessionRepository.findById(sessionId);
+    public Session joinSession(String sessionId, String tempSocketId, String clientIp) {
+        LoggerUtil.dev("join session for sessionId=" + sessionId);
+
+        Session session = getSession(sessionId);
         if (session == null) {
-            LoggerUtil.warn(SessionService.class, "join attempt failed, session not found for sessionId=" + sessionId);
-            throw new IllegalStateException("session not found or expired");
+            throw new IllegalArgumentException("Session not found");
         }
 
-        if(session.isMultiRecipient()){
-            if(session.getReceiverSocketIds() == null){
-                session.setReceiverSocketIds(new HashSet<>());
-            }
-            if(session.getReceiverSocketIds().size() >= session.getMaxReceivers()){
-                LoggerUtil.warn(SessionService.class,"join attempt failed, max receivers reached for sessionId=" + sessionId);
-                throw new IllegalStateException("max receivers reached");
-            }
-
-            session.getReceiverSocketIds().add(receiverSocketId);
-            if(session.getReceiverIps() == null){
-                session.setReceiverIps(new HashMap<>());
-            }
-            session.getReceiverIps().put(receiverSocketId,receiverIp);
-        } else {
-            if (session.getReceiverSocketId() != null && !session.getReceiverSocketId().startsWith("temp-")) {
-                LoggerUtil.warn(SessionService.class, "join attempt failed, session already has a receiver for sessionId=" + sessionId);
-                throw new IllegalStateException("session already have a receiver");
-            }
-
-            session.setReceiverSocketId(receiverSocketId);
-            session.setReceiverIp(receiverIp);
+        if (session.isMultiRecipient()) {
+            return addReceiver(sessionId, tempSocketId, clientIp);
         }
 
+        session.setReceiverSocketId(tempSocketId);
         session.setStatus(SessionStatus.CONNECTED);
-        session.updateActivity();
 
-        sessionRepository.save(session, sessionTimeoutMinutes);
-        LoggerUtil.audit("session joined for sessionId=" + sessionId + ",receiverIp=" + receiverIp);
+        sessionRepository.save(sessionId, session);
+        LoggerUtil.audit("session joined for sessionId=" + sessionId +
+                ",receiverIp=" + clientIp);
+
         return session;
     }
 
     /**
+     * update receiver socket ID in broadcast mode
+     * this replaces pending placeholders with actual socket IDs
+     */
+    public void updateReceiverSocketIdInBroadcast(String sessionId, String oldSocketId, String newSocketId) {
+        Session session = getSession(sessionId);
+        if (session == null || !session.isMultiRecipient()) {
+            return;
+        }
+
+        Set<String> receivers = session.getReceiverSocketIds();
+        if (receivers == null) {
+            receivers = new HashSet<>();
+            session.setReceiverSocketIds(receivers);
+        }
+
+        Map<String, String> ips = session.getReceiverIps();
+        if (ips == null) {
+            ips = new HashMap<>();
+            session.setReceiverIps(ips);
+        }
+
+        Map<String, Integer> progress = session.getReceiverProgress();
+        if (progress == null) {
+            progress = new HashMap<>();
+            session.setReceiverProgress(progress);
+        }
+
+        if (oldSocketId != null && (oldSocketId.startsWith("temp-") || oldSocketId.startsWith("pending-"))) {
+            receivers.remove(oldSocketId);
+
+            String oldIp = ips.remove(oldSocketId);
+            if (oldIp != null) {
+                ips.put(newSocketId, oldIp);
+            }
+
+            Integer oldProgress = progress.remove(oldSocketId);
+            if (oldProgress != null) {
+                progress.put(newSocketId, oldProgress);
+            } else {
+                progress.put(newSocketId, 0);
+            }
+        } else {
+            receivers.add(newSocketId);
+            if (!ips.containsKey(newSocketId)) {
+                ips.put(newSocketId, null);
+            }
+            if (!progress.containsKey(newSocketId)) {
+                progress.put(newSocketId, 0);
+            }
+        }
+
+        sessionRepository.save(sessionId, session);
+
+        LoggerUtil.audit("receiver socket updated in broadcast set for sessionId=" + sessionId +
+                ",oldSocketId=" + oldSocketId + ",newSocketId=" + newSocketId);
+    }
+    /**
      * allow additional receivers to join an active session
      * returns the updated session with all receivers
      */
-    public Session addReceiver(String sessionId, String receiverSocketId, String receiverIp){
-        Session session = sessionRepository.findById(sessionId);
-        if(session == null) {
-            throw new IllegalStateException("session not found or expired");
-        }
-        if(!session.isMultiRecipient()){
-            throw new IllegalStateException("session does not support multiple receivers");
+    public Session addReceiver(String sessionId, String tempSocketId, String clientIp) {
+        LoggerUtil.dev("add receiver for sessionId=" + sessionId);
+
+        Session session = getSession(sessionId);
+        if (session == null) {
+            throw new IllegalArgumentException("Session not found");
         }
 
-        if(session.getReceiverSocketIds() == null) {
+        if (!session.isMultiRecipient()) {
+            throw new IllegalArgumentException("Session is not in broadcast mode");
+        }
+
+        if (session.getReceiverSocketIds() == null) {
             session.setReceiverSocketIds(new HashSet<>());
         }
-
-        if(session.getReceiverSocketIds().size() >= session.getMaxReceivers()){
-            throw new IllegalStateException("max receivers reached");
-        }
-
-        session.getReceiverSocketIds().add(receiverSocketId);
-
-        if(session.getReceiverIps() == null){
+        if (session.getReceiverIps() == null) {
             session.setReceiverIps(new HashMap<>());
         }
-
-        session.getReceiverIps().put(receiverSocketId,receiverIp);
-
-        if(session.getReceiverProgress() == null){
+        if (session.getReceiverProgress() == null) {
             session.setReceiverProgress(new HashMap<>());
         }
-        session.getReceiverProgress().put(receiverSocketId,0);
 
-        session.updateActivity();
-        sessionRepository.save(session,sessionTimeoutMinutes);
+        String placeholder = "pending-" + UUID.randomUUID().toString().substring(0, 8);
 
-        LoggerUtil.audit("receiver added for sessionId=" + sessionId + ",receiverSocketId=" + receiverSocketId);
+        session.getReceiverSocketIds().add(placeholder);
+
+        if (clientIp != null && !clientIp.isEmpty()) {
+            session.getReceiverIps().put(placeholder, clientIp);
+        }
+
+        session.getReceiverProgress().put(placeholder, 0);
+
+        sessionRepository.save(sessionId, session);
+
+        LoggerUtil.audit("receiver added to broadcast set for sessionId=" + sessionId +
+                ",placeholder=" + placeholder + ",ip=" + clientIp);
+
         return session;
     }
 
@@ -179,7 +221,7 @@ public class SessionService {
     }
 
     /**
-     * Update receiver socket ID when actual WebSocket connection is established
+     * update receiver socket ID when actual WebSocket connection is established
      */
     public void updateReceiverSocketId(String sessionId, String realSocketId) {
         Session session = sessionRepository.findById(sessionId);
@@ -187,6 +229,14 @@ public class SessionService {
         if (session != null) {
             String oldSocketId = session.getReceiverSocketId();
             session.setReceiverSocketId(realSocketId);
+
+            if (session.isMultiRecipient() && session.getReceiverSocketIds() != null) {
+                session.getReceiverSocketIds().remove(oldSocketId);
+                session.getReceiverSocketIds().add(realSocketId);
+                LoggerUtil.audit("receiver socket updated in broadcast set for sessionId=" + sessionId +
+                        ",oldSocketId=" + oldSocketId + ",newSocketId=" + realSocketId);
+            }
+
             session.updateActivity();
             sessionRepository.update(session, sessionTimeoutMinutes);
 

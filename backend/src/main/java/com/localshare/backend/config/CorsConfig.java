@@ -19,7 +19,6 @@ import java.util.List;
 @Configuration
 @ConfigurationProperties(prefix = "cors")
 public class CorsConfig implements WebMvcConfigurer {
-
     private List<String> allowedOrigins;
     private List<String> allowedMethods;
     private List<String> allowedHeaders;
