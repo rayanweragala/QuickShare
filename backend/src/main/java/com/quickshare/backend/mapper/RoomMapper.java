@@ -23,6 +23,7 @@ public class RoomMapper {
                 .fileCount(room.getFiles().size())
                 .currentStorageBytes(room.getCurrentStorageBytes())
                 .maxStorageBytes(room.getMaxStorageBytes())
+                .maxParticipants(room.getMaxParticipants())
                 .creatorOnlyUpload(room.getCreatorOnlyUpload())
                 .createdAt(room.getCreatedAt().toString())
                 .expiresAt(room.getExpiresAt().toString())

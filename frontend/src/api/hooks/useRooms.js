@@ -4,11 +4,12 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
 const roomAPI = {
   createRoom: async (data) => {
+    const userId = getOrCreateUserId();
     const response = await fetch(`${API_BASE_URL}/rooms`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-User-ID": localStorage.getItem("userUuid") || "anonymous",
+        "X-User-ID": userId
       },
       body: JSON.stringify(data),
     });
@@ -67,7 +68,7 @@ const roomAPI = {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-User-ID": localStorage.getItem("userUuid") || "anonymous",
+        "X-User-ID": userId
       },
       body: JSON.stringify({ socketId, userId }),
     });

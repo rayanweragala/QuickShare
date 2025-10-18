@@ -22,9 +22,11 @@ import {
   Share2,
   FileText,
   AlertCircle,
+  Star,
 } from "lucide-react";
 import FileUploadModal from "./FileUploadModal";
 import { useFileDownload, useFileDelete } from "../../api/hooks/useFileUpload";
+
 import { logger } from "../../utils/logger";
 
 const RoomModal = ({ isOpen, onClose, roomCode }) => {
@@ -38,6 +40,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const hasJoinedRef = useRef(false);
+  const [isFeatured, setIsFeatured] = useState(false);
 
   const downloadMutation = useFileDownload();
   const deleteMutation = useFileDelete(roomCode || "");
@@ -54,6 +57,21 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
     mutationFn: (roomId) => roomAPI.leaveRoom(roomId, socketId),
     onSuccess: () => {
       onClose();
+    },
+  });
+
+  const deleteRoomMutation = useMutation({
+    mutationFn: (roomId) => roomAPI.deleteRoom(roomId),
+    onSuccess: (data, roomId) => {
+      console.log("Room deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["publicRooms"] });
+      queryClient.invalidateQueries({ queryKey: ["privateRooms"] });
+      queryClient.invalidateQueries({ queryKey: ["featuredRooms"] });
+      queryClient.removeQueries({ queryKey: ["roomDetails", roomId] });
+      onClose();
+    },
+    onError: (error) => {
+      logger.error("Failed to delete room:", error);
     },
   });
 
@@ -146,6 +164,69 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
     }
   };
 
+  const handleDeleteRoom = () => {
+    if (roomData?.room?.id) {
+      if (
+        window.confirm(
+          "Are you sure you want to permanently delete this room? This action cannot be undone."
+        )
+      ) {
+        deleteRoomMutation.mutate(roomData.room.id);
+      }
+    } else {
+      logger.error("Cannot delete room: Room ID is missing.");
+      onClose();
+    }
+  };
+
+  const updateRoomMutation = useMutation({
+    mutationFn: (updates) => roomAPI.updateRoom(roomData.room.id, updates),
+    onSuccess: (updatedRoom) => {
+      queryClient.setQueryData(["roomDetails", roomData.room.id], (oldData) => {
+        if (!oldData) {
+          return { room: updatedRoom, participants: [], files: [] };
+        }
+        return {
+          ...oldData,
+          room: updatedRoom,
+        };
+      });
+      setEditedRoomName(updatedRoom.roomName);
+      setIsFeatured(updatedRoom.isFeatured);
+      setIsEditing(false);
+    },
+    onError: (error) => {
+      logger.error("Failed to update room:", error);
+    },
+  });
+
+  useEffect(() => {
+    if (roomData?.room) {
+      setIsFeatured(roomData.room.isFeatured || false);
+      setEditedRoomName(roomData.room.roomName);
+    }
+  }, [roomData]);
+
+  const handleSave = () => {
+    const updates = {
+      roomName: editedRoomName,
+      isFeatured: isFeatured,
+    };
+    updateRoomMutation.mutate(updates);
+  };
+
+  const handleToggleFeatured = () => {
+    if (!isEditing) {
+      const updates = {
+        roomName: room.roomName,
+        isFeatured: !isFeatured,
+      };
+      updateRoomMutation.mutate(updates);
+    } else {
+      setIsFeatured(!isFeatured);
+    }
+  };
+
   const currentUser = roomData?.participants?.find(
     (p) => p.socketId === socketId
   );
@@ -178,9 +259,20 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
 
   if (!roomData) return null;
 
-  const { room, participants = [], files = [], stats } = roomData;
+  const { room, participants = [], files = [] } = roomData;
   const storagePercent =
     (room.currentStorageBytes / room.maxStorageBytes) * 100;
+
+  const filesWithUploaderDetails = files.map((file) => {
+    const uploader = participants.find(
+      (p) => p.animalName === file.uploaderAnimalName
+    );
+    return {
+      ...file,
+      uploaderDetails: uploader,
+      isCurrentUserUploader: uploader?.userId === userId,
+    };
+  });
 
   return (
     <>
@@ -202,10 +294,15 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                         className="px-3 py-1 bg-zinc-800 border border-zinc-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50"
                       />
                       <button
-                        onClick={() => setIsEditing(false)}
+                        onClick={handleSave}
+                        disabled={updateRoomMutation.isPending}
                         className="p-1 hover:bg-green-500/20 rounded text-green-400"
                       >
-                        <Save className="w-4 h-4" />
+                        {updateRoomMutation.isPending ? (
+                          <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Save className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                   ) : (
@@ -226,6 +323,27 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                   <p className="text-sm text-zinc-400">
                     by {room.creatorAnimalName}
                   </p>
+                  {
+                    <button
+                      onClick={handleToggleFeatured}
+                      className={`p-1 rounded transition-all ${
+                        isFeatured
+                          ? "text-yellow-400 hover:text-yellow-300"
+                          : "text-zinc-400 hover:text-yellow-400"
+                      }`}
+                      title={isFeatured ? "Unfeature room" : "Feature room"}
+                      disabled={updateRoomMutation.isPending}
+                    >
+                      {updateRoomMutation.isPending ? (
+                        <div className="w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Star
+                          className="w-4 h-4"
+                          fill={isFeatured ? "currentColor" : "none"}
+                        />
+                      )}
+                    </button>
+                  }
                 </div>
               </div>
 
@@ -410,9 +528,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex-1">
-                    <p className="text-sm text-zinc-400 mb-2">
-                      Storage Usage
-                    </p>
+                    <p className="text-sm text-zinc-400 mb-2">Storage Usage</p>
                     <div className="flex items-center gap-3">
                       <div className="flex-1 h-2.5 bg-zinc-700 rounded-full overflow-hidden">
                         <div
@@ -468,7 +584,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {files.map((file) => {
+                    {filesWithUploaderDetails.map((file) => {
                       const canDelete =
                         isCreator || file.uploaderSocketId === socketId;
 
@@ -481,6 +597,8 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                           canDelete={canDelete}
                           isDownloading={downloadMutation?.isPending || false}
                           isDeleting={deleteMutation?.isPending || false}
+                          uploaderDetails={file.uploaderDetails}
+                          isCurrentUserUploader={file.isCurrentUserUploader}
                         />
                       );
                     })}
@@ -503,9 +621,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-zinc-400">
-                        Creator Only Upload
-                      </span>
+                      <span className="text-zinc-400">Creator Only Upload</span>
                       <span className="text-white font-medium">
                         {room.creatorOnlyUpload ? "Yes" : "No"}
                       </span>
@@ -557,9 +673,15 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                   </button>
 
                   {isCreator && (
-                    <button className="w-full px-4 py-3 bg-red-600/20 hover:bg-red-600/30 border border-red-600/30 text-red-400 font-semibold rounded-lg transition-all flex items-center justify-center gap-2">
+                    <button
+                      onClick={handleDeleteRoom}
+                      disabled={deleteRoomMutation.isPending}
+                      className="w-full px-4 py-3 bg-red-600/20 hover:bg-red-600/30 border border-red-600/30 text-red-400 font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+                    >
                       <Trash2 className="w-4 h-4" />
-                      Delete Room
+                      {deleteRoomMutation.isPending
+                        ? "Deleting..."
+                        : "Delete Room"}
                     </button>
                   )}
                 </div>

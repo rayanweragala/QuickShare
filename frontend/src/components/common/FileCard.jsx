@@ -21,6 +21,8 @@ const FileCard = ({
   canDelete,
   isDownloading,
   isDeleting,
+  uploaderDetails,
+  isCurrentUserUploader 
 }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -48,8 +50,6 @@ const FileCard = ({
       return "from-blue-500/20 to-blue-600/20";
     if (fileType.startsWith("video/"))
       return "from-purple-500/20 to-purple-600/20";
-    if (fileType.startsWith("audio/"))
-      return "from-pink-500/20 to-pink-600/20";
     if (fileType.includes("zip") || fileType.includes("rar"))
       return "from-orange-500/20 to-orange-600/20";
     if (fileType.includes("pdf"))
@@ -88,10 +88,54 @@ const FileCard = ({
 
   const isThisFileDownloading = isDownloading;
 
+  const UploaderAvatar = uploaderDetails ? (
+    <div 
+      className="flex items-center gap-2 cursor-default"
+      title={isCurrentUserUploader ? 'You uploaded this' : `Uploaded by ${uploaderDetails.animalName}`}
+    >
+      <div 
+        className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0"
+        style={{
+          backgroundColor: `${uploaderDetails.avatarColor}20`,
+          color: uploaderDetails.avatarColor,
+        }}
+      >
+        {uploaderDetails.animalIcon}
+      </div>
+      <span className="text-xs font-medium text-zinc-400">
+        {isCurrentUserUploader ? 'You' : uploaderDetails.animalName}
+      </span>
+    </div>
+  ) : (
+    <span className="text-xs text-zinc-500">Uploader Unknown</span>
+  );
+
+  const cardContainerClasses = `flex flex-col p-4 space-y-3 
+    ${isCurrentUserUploader ? 'items-end' : 'items-start'}
+  `;
+  
+  const fileContentClasses = `flex items-start gap-4 w-full 
+    ${isCurrentUserUploader ? 'flex-row-reverse' : 'flex-row'}
+  `;
+
   return (
-    <div className="group relative bg-zinc-800/50 rounded-xl border border-zinc-700 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/10 transition-all duration-300">
-      <div className="p-4">
-        <div className="flex items-start gap-4">
+    <div 
+      className={`group relative bg-zinc-800/50 rounded-xl border hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/10 transition-all duration-300 w-full 
+        ${isCurrentUserUploader ? 'border-green-500/30' : 'border-zinc-700'}
+      `}
+    >
+      <div className={cardContainerClasses}>
+        
+        {/* 1. Uploader Avatar */}
+        <div className="flex w-full">
+            {isCurrentUserUploader 
+                ? <div className="ml-auto">{UploaderAvatar}</div> 
+                : <div className="mr-auto">{UploaderAvatar}</div>}
+        </div>
+
+
+        {/* 2. File Content (Icon, Name, Details) */}
+        <div className={fileContentClasses}>
           <div
             className={`w-14 h-14 bg-gradient-to-br ${getFileColor(
               file.fileType
@@ -100,20 +144,17 @@ const FileCard = ({
             {getFileIcon(file.fileType)}
           </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1 min-w-0">
-                <h4 className="font-semibold text-white truncate text-base mb-1">
+          <div className={`flex-1 min-w-0 ${isCurrentUserUploader ? 'text-right' : 'text-left'}`}>
+            <div className={`flex items-start gap-2 ${isCurrentUserUploader ? 'flex-row-reverse justify-end' : 'flex-row justify-start'}`}>
+              
+              <div className="flex-1 min-w-0"> 
+                <h4 className="font-semibold text-white truncate text-base mb-1" title={file.fileName}>
                   {file.fileName}
                 </h4>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+                <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500 ${isCurrentUserUploader ? 'justify-end' : 'justify-start'}`}>
                   <span className="flex items-center gap-1">
                     <span className="w-1 h-1 bg-zinc-500 rounded-full"></span>
                     {formatBytes(file.fileSize)}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-1 h-1 bg-zinc-500 rounded-full"></span>
-                    {file.uploaderAnimalName}
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="w-1 h-1 bg-zinc-500 rounded-full"></span>
@@ -122,7 +163,7 @@ const FileCard = ({
                 </div>
               </div>
 
-              <div className="relative">
+              <div className="relative flex-shrink-0"> 
                 <button
                   onClick={() => setShowMenu(!showMenu)}
                   className="p-1 hover:bg-zinc-700 rounded-lg text-zinc-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
@@ -160,7 +201,7 @@ const FileCard = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-2 mt-3">
+            <div className={`flex items-center gap-2 mt-3 ${isCurrentUserUploader ? 'justify-end' : 'justify-start'}`}>
               <div className="flex items-center gap-1.5 px-2 py-1 bg-zinc-700/50 rounded-md">
                 <Download className="w-3 h-3 text-green-400" />
                 <span className="text-xs font-medium text-zinc-300">
@@ -171,11 +212,11 @@ const FileCard = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mt-4 pt-4 border-t border-zinc-700">
+        <div className="flex items-center gap-2 w-full pt-4 border-t border-zinc-700">
           <button
             onClick={() => onDownload(file)}
             disabled={isThisFileDownloading}
-            className="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 disabled:bg-zinc-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+            className="flex-1 px-4 py-2 bg-green-500/10 hover:bg-green-500/20 border border-green-400/50 disabled:bg-zinc-700 text-green-400 font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
           >
             {isThisFileDownloading ? (
               <>

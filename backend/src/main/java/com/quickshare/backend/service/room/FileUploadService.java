@@ -103,6 +103,15 @@ public class FileUploadService {
 
         cacheService.evictRoomCaches(room.getId());
 
+        try {
+            RoomDetailsResponse updatedRoom = roomCacheService.getRoomDetails(room.getId());
+            webSocketHandler.broadcastRoomUpdate(roomCode, updatedRoom);
+            LoggerUtil.dev("Broadcasted pending file to room=" + roomCode);
+        } catch (Exception e) {
+            LoggerUtil.error(FileUploadService.class,
+                    "Failed to broadcast pending file=" + e.getMessage(), e);
+        }
+
         usageLimitService.trackFileUpload(userId,ipAddress);
         rateLimitService.trackAction(userId,"file_upload");
 
@@ -168,6 +177,7 @@ public class FileUploadService {
         try {
             RoomDetailsResponse updatedRoom = roomCacheService.getRoomDetails(room.getId());
             webSocketHandler.broadcastRoomUpdate(roomCode, updatedRoom);
+            webSocketHandler.broadcastPublicRoomsUpdate();
             LoggerUtil.dev("Broadcasted file upload completion to room=" + roomCode);
         } catch (Exception e) {
             LoggerUtil.error(FileUploadService.class,
@@ -266,6 +276,7 @@ public class FileUploadService {
         try {
             RoomDetailsResponse updatedRoom = roomCacheService.getRoomDetails(room.getId());
             webSocketHandler.broadcastRoomUpdate(roomCode, updatedRoom);
+            webSocketHandler.broadcastPublicRoomsUpdate();
             LoggerUtil.dev("Broadcasted file deletion to room=" + roomCode);
         } catch (Exception e) {
             LoggerUtil.error(FileUploadService.class,
