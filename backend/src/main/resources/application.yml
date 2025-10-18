@@ -8,7 +8,7 @@ spring:
     name: LocalShare-Backend
   data:
     redis:
-      url: redis://default:AS70AAIncDJmYjRmYjY2N2NjM2E0MDQ0YjUxNmYyMDI3ZGQ5OWU4NHAyMTIwMjA@mighty-gobbler-12020.upstash.io:6379
+      url: rediss://default:AS70AAIncDJmYjRmYjY2N2NjM2E0MDQ0YjUxNmYyMDI3ZGQ5OWU4NHAyMTIwMjA@mighty-gobbler-12020.upstash.io:6379
       timeout: 2000ms
       lettuce:
         pool:
