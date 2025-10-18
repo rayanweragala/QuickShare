@@ -78,7 +78,7 @@ export const SessionCreator = ({ onSessionEnd, isBroadcast = false }) => {
         await createSession();
       }
     } catch (err) {
-      console.error("Create session error:", err);
+      logger.error("Create session error:", err);
     }
   };
 

@@ -52,6 +52,9 @@ public class RoomFile {
     @Column(name = "UPLOADER_ANIMAL_NAME", nullable = false)
     private String uploaderAnimalName;
 
+    @Column(name = "UPLOADER_USER_ID",nullable = false)
+    private String uploaderUserId;
+
     @Column(name = "UPLOADER_SOCKET_ID", nullable = false)
     private String uploaderSocketId;
 
