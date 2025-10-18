@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { SessionCreator, SessionJoiner } from "./components/session";
 import { statsService } from "./services/stats.service";
-import CreateRoomModal from "../src/components/rooms/CreateRoomModal";
-import { RoomSuccessModal } from "../src/components/rooms/RoomSuccessModal";
-import { PublicRoomsList } from "./components/rooms/PublicRoomsList";
+import CreateRoomModal from "./components/rooms/CreateRoomModal";
+import { RoomSuccessModal } from "./components/rooms/RoomSuccessModal";
+import { RoomsList } from "./components/rooms/RoomsList";
 import RoomModal from "./components/rooms/RoomModal";
 import { ErrorMessage } from "./components/common";
 import { useQueryClient } from "@tanstack/react-query";
@@ -22,8 +22,15 @@ import {
   Send,
   Layers,
   Star,
-  Trash2,
+  Zap,
+  Shield,
+  Heart,
+  Gauge,
+  Wifi,
+  ChevronLeft,
+  ChevronRight,
   Settings,
+  Trash2,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { roomAPI } from "./api/hooks/useRooms";
@@ -44,6 +51,8 @@ function App() {
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [selectedRoomCode, setSelectedRoomCode] = useState(null);
   const [sortBy, setSortBy] = useState("recent");
+  const [featuredPage, setFeaturedPage] = useState(0);
+  const [joinCode, setJoinCode] = useState("");
 
   const { featuredRooms, toggleFeatured } = useFeaturedRoomsSocket();
   const {
@@ -57,7 +66,7 @@ function App() {
       roomAPI.searchRoomsAdvanced({
         sortBy: sortBy,
         page: 0,
-        size: 6,
+        size: 12,
       }),
     staleTime: 5 * 60 * 1000,
     cacheTime: 10 * 60 * 1000,
@@ -116,6 +125,7 @@ function App() {
 
   const resetToHome = () => {
     setView("home");
+     setJoinCode(""); 
   };
 
   if (view === "sender") {
@@ -127,106 +137,165 @@ function App() {
   }
 
   if (view === "receiver") {
-    return <SessionJoiner onSessionEnd={resetToHome} />;
+    return <SessionJoiner onSessionEnd={resetToHome} initialCode={joinCode}  />;
   }
 
+  const headerStats = [
+    {
+      icon: Upload,
+      label: "Files Shared",
+      value: stats.totalFiles.toLocaleString(),
+    },
+    {
+      icon: Users,
+      label: "Active Sessions",
+      value: stats.totalSessions.toLocaleString(),
+    },
+    {
+      icon: Download,
+      label: "Shared Today",
+      value: stats.todayFiles.toLocaleString(),
+    },
+    {
+      icon: Globe,
+      label: "Public Rooms",
+      value: publicRooms.length.toLocaleString(),
+    },
+  ];
+
+  const whyReasons = [
+    {
+      icon: Zap,
+      title: "Blazing Fast",
+      description:
+        "Direct peer-to-peer connections mean your files transfer at maximum speed without server bottlenecks.",
+    },
+    {
+      icon: Shield,
+      title: "Privacy First",
+      description:
+        "End-to-end encryption ensures only you and your recipient can access the files. No cloud storage.",
+    },
+    {
+      icon: Heart,
+      title: "Simple & Free",
+      description:
+        "No account required, no credit card, no limits. Just drag, drop, and share instantly.",
+    },
+    {
+      icon: Users,
+      title: "Built for Everyone",
+      description:
+        "From students sharing homework to teams collaborating on projects, QuickShare works for all.",
+    },
+    {
+      icon: Lock,
+      title: "Zero Knowledge",
+      description:
+        "We never see your files. They go directly from you to your recipient without touching our servers.",
+    },
+    {
+      icon: Gauge,
+      title: "No Size Limits",
+      description:
+        "Share files of any size. Videos, databases, archives - send anything without compression.",
+    },
+  ];
+
+  const totalFeaturedPages = featuredRooms.length;
+  const currentFeaturedRooms = featuredRooms.slice(
+    featuredPage,
+    featuredPage + 1
+  );
+  const handlePrevFeatured = () => {
+    setFeaturedPage((prev) => (prev > 0 ? prev - 1 : totalFeaturedPages - 1));
+  };
+
+  const handleNextFeatured = () => {
+    setFeaturedPage((prev) => (prev < totalFeaturedPages - 1 ? prev + 1 : 0));
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 flex items-center justify-center p-4">
-      <main className="w-full max-w-6xl" role="main">
-        <header
-          className="text-center animate-fade-in"
-          style={{ marginBottom: "4rem" }}
-        >
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white mb-4 flex items-center justify-center gap-4">
-            Quick<span className="text-green-500">Share</span>
-            <span className="text-xs font-semibold bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full border border-blue-500/30">
-              BETA
-            </span>
-          </h1>
-          <p className="text-neutral-300 text-xl sm:text-2xl leading-relaxed">
-            Secure peer-to-peer file sharing
-          </p>
+    <div className="min-h-screen bg-black">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-green-500/5 rounded-full blur-3xl animate-pulse" />
+        <div
+          className="absolute bottom-0 right-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl animate-pulse"
+          style={{ animationDelay: "1s" }}
+        />
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-green-500/3 rounded-full blur-3xl animate-pulse"
+          style={{ animationDelay: "0.5s" }}
+        />
+      </div>
 
-          <section className="mb-12 mt-4">
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8 text-center">
-              <div
-                className="group cursor-help"
-                title="Total files shared across all sessions"
-              >
-                <div className="text-3xl font-bold text-green-500 mb-1 group-hover:scale-110 transition-transform">
-                  {stats.totalFiles.toLocaleString()}
-                </div>
-                <div className="text-sm text-neutral-300 font-medium">
-                  Files Shared
-                </div>
-                <div className="text-xs text-neutral-500 mt-1">All Time</div>
+      <header className="relative z-10 border-b border-green-500/10 bg-black/50 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/50">
+                <Zap className="w-6 h-6 text-black" />
               </div>
-              <div className="hidden sm:block h-8 w-px bg-neutral-700"></div>
-              <div
-                className="group cursor-help"
-                title="Files shared in the last 24 hours"
-              >
-                <div className="text-3xl font-bold text-blue-500 mb-1 group-hover:scale-110 transition-transform">
-                  {stats.todayFiles.toLocaleString()}
-                </div>
-                <div className="text-sm text-neutral-300 font-medium">
-                  Shared Today
-                </div>
-                <div className="text-xs text-neutral-500 mt-1">Last 24h</div>
-              </div>
-              <div className="hidden sm:block h-8 w-px bg-neutral-700"></div>
-              <div
-                className="group cursor-help"
-                title="Active sharing sessions"
-              >
-                <div className="text-3xl font-bold text-purple-500 mb-1 group-hover:scale-110 transition-transform">
-                  {stats.totalSessions.toLocaleString()}
-                </div>
-                <div className="text-sm text-neutral-300 font-medium">
-                  Sessions
-                </div>
-                <div className="text-xs text-neutral-500 mt-1">Active</div>
-              </div>
+              <span className="text-2xl font-bold text-white">QuickShare</span>
             </div>
-          </section>
-        </header>
-
-        <section className="mb-8">
-          <div className="bg-gradient-to-r from-green-900/40 via-emerald-900/40 to-green-900/40 backdrop-blur-xl rounded-2xl border border-green-500/30 p-6 sm:p-8 animate-fade-in">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center">
-                  <ArrowRight className="w-6 h-6 text-green-400" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-white">
-                    Quick Transfer
-                  </h2>
-                  <p className="text-neutral-300 text-sm">
-                    Fast peer-to-peer file sharing with unique codes
-                  </p>
-                </div>
-              </div>
+            <div className="flex items-center gap-4">
+              <span className="px-3 py-1 border border-green-400/50 text-green-400 bg-green-500/10 rounded-full text-sm font-medium">
+                P2P Powered
+              </span>
             </div>
+          </div>
 
-            <div className="grid sm:grid-cols-2 gap-6">
-              <div className="group relative overflow-hidden bg-gradient-to-br from-green-600/20 to-emerald-700/20 hover:from-green-600/30 hover:to-emerald-700/30 border-2 border-green-500/40 hover:border-green-400/60 rounded-xl p-6 transition-all duration-300 hover:shadow-xl hover:shadow-green-500/20">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-3xl group-hover:bg-green-500/20 transition-all" />
-                <div className="relative">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Upload className="w-5 h-5 text-green-400" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {headerStats.map((stat) => (
+              <div key={stat.label} className="relative group">
+                <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-emerald-600/10 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative bg-zinc-900/80 backdrop-blur-sm border border-zinc-800 rounded-xl p-4 hover:bg-zinc-900 hover:border-green-500/30 transition-all duration-300">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 rounded-lg bg-green-500/10">
+                      <stat.icon className="w-4 h-4 text-green-400" />
                     </div>
-                    <h3 className="text-xl font-bold text-white">Send Files</h3>
+                    <span className="text-sm text-zinc-400">{stat.label}</span>
                   </div>
-                  <p className="text-neutral-300 text-sm mb-5">
-                    Share anything, securely
+                  <div className="text-2xl font-bold text-white">
+                    {stat.value}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      <main className="relative z-10">
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="grid lg:grid-cols-12 gap-6 mb-8">
+            <div className="lg:col-span-4">
+              <div className="relative group h-full">
+                <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-600/20 rounded-2xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative bg-zinc-900/80 backdrop-blur-md border border-zinc-800 rounded-2xl p-6 hover:bg-zinc-900 hover:border-green-500/50 transition-all duration-300 h-full flex flex-col">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="p-3 rounded-xl bg-gradient-to-br from-green-700 to-emerald-700 shadow-lg shadow-green-900/50">
+                      <Upload className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-green-400" />
+                      <span className="text-sm text-green-400 font-medium">
+                        Encrypted
+                      </span>
+                    </div>
+                  </div>
+
+                  <h3 className="text-xl font-bold text-white mb-2">
+                    Send Files
+                  </h3>
+                  <p className="text-zinc-400 text-sm mb-6">
+                    Share anything, securely with unique codes
                   </p>
 
-                  <div className="space-y-2">
+                  <div className="space-y-3 mb-4 mt-auto">
                     <button
                       onClick={() => setView("sender")}
-                      className="w-full bg-green-600/80 hover:bg-green-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 shadow-lg hover:shadow-green-500/30"
+                      className="w-full bg-green-500/10 hover:bg-green-500/20 border border-green-400/50 text-green-400 font-bold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
                     >
                       <Send className="w-4 h-4" />
                       <span>Send to Device</span>
@@ -234,455 +303,450 @@ function App() {
 
                     <button
                       onClick={() => setView("broadcast")}
-                      className="w-full bg-green-600/40 hover:bg-green-600/60 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2"
+                      className="w-full bg-zinc-800 hover:bg-zinc-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 border border-zinc-700 hover:border-green-500/50"
                     >
                       <Layers className="w-4 h-4" />
                       <span>Share to Multiple</span>
                     </button>
                   </div>
-
-                  <p className="text-xs text-green-400 mt-4 flex items-center gap-1">
-                    <Lock className="w-3 h-3" />
-                    Get a code to share with others
-                  </p>
                 </div>
               </div>
+            </div>
 
-              <div className="group relative overflow-hidden bg-gradient-to-br from-emerald-600/20 to-green-700/20 hover:from-emerald-600/30 hover:to-green-700/30 border-2 border-emerald-500/40 hover:border-emerald-400/60 rounded-xl p-6 transition-all duration-300 hover:shadow-xl hover:shadow-emerald-500/20">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-all" />
-                <div className="relative">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Download className="w-5 h-5 text-emerald-400" />
+            <div className="lg:col-span-4">
+              <div className="relative group h-full">
+                <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-600/20 rounded-2xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="relative bg-zinc-900/80 backdrop-blur-md border border-zinc-800 rounded-2xl p-6 hover:bg-zinc-900 hover:border-green-500/50 transition-all duration-300 h-full flex flex-col">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-700 to-green-700 shadow-lg shadow-emerald-900/50">
+                      <Download className="w-6 h-6 text-white" />
                     </div>
-                    <h3 className="text-xl font-bold text-white">
-                      Receive Files
+                    <div className="flex items-center gap-2">
+                      <Wifi className="w-4 h-4 text-green-400" />
+                      <span className="text-sm text-green-400 font-medium">
+                        P2P
+                      </span>
+                    </div>
+                  </div>
+
+                  <h3 className="text-xl font-bold text-white mb-2">
+                    Receive Files
+                  </h3>
+                  <p className="text-zinc-400 text-sm mb-6">
+                    Join a share session with a code
+                  </p>
+
+                  <div className="mt-auto space-y-3">
+                    <input
+                      type="text"
+                      value={joinCode}
+                      onChange={(e) => {
+                        const value = e.target.value
+                          .toUpperCase()
+                          .replace(/[^A-Z0-9]/g, "");
+                        setJoinCode(value);
+                      }}
+                      placeholder="000000"
+                      maxLength={6}
+                      className="w-full px-4 py-3 bg-zinc-800/50 border border-zinc-700 text-white text-center text-2xl font-mono tracking-widest placeholder-zinc-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all"
+                    />
+
+                    <button
+                      onClick={() => {
+                        if (joinCode.length === 6) {
+                          setView("receiver");
+                        }
+                      }}
+                      disabled={joinCode.length < 6}
+                      className="w-full bg-zinc-800 hover:bg-zinc-700 disabled:bg-zinc-800/50 disabled:cursor-not-allowed text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 border border-zinc-700 hover:border-green-500/50 disabled:border-zinc-800"
+                    >
+                      <span>Join Session</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+
+                    <p className="text-xs text-green-400 flex items-center gap-1 justify-center">
+                      <Clock className="w-3 h-3" />
+                      Enter a 6-digit code to receive files
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-4">
+              {featuredRooms.length > 0 ? (
+                <div className="relative h-full">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Star className="w-5 h-5 text-green-400 fill-green-400" />
+                      Featured
+                    </h3>
+                    {totalFeaturedPages > 1 && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handlePrevFeatured}
+                          className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-green-500/50 transition-all"
+                        >
+                          <ChevronLeft className="w-4 h-4 text-green-400" />
+                        </button>
+                        <span className="text-sm text-zinc-400 font-mono">
+                          {featuredPage + 1}/{totalFeaturedPages}
+                        </span>
+                        <button
+                          onClick={handleNextFeatured}
+                          className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-green-500/50 transition-all"
+                        >
+                          <ChevronRight className="w-4 h-4 text-green-400" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    {currentFeaturedRooms.map((room) => (
+                      <div key={room.id} className="relative group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-emerald-600/10 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                        <div className="relative bg-zinc-900/80 backdrop-blur-md border border-zinc-800 rounded-xl p-4 hover:bg-zinc-900 hover:border-green-500/50 transition-all duration-300">
+                          <div
+                            className="cursor-pointer"
+                            onClick={() => handleJoinRoom(room.roomCode)}
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-xl">
+                                    {room.roomIcon}
+                                  </span>
+                                  <h4 className="font-bold text-white truncate">
+                                    {room.roomName || "Untitled Room"}
+                                  </h4>
+                                </div>
+                                <p className="text-xs text-zinc-500">
+                                  by {room.creatorAnimalName}
+                                </p>
+                              </div>
+                              <span className="px-2 py-1 bg-green-500/20 text-green-400 border border-green-500/30 text-xs rounded font-mono font-bold ml-2">
+                                {room.roomCode}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-4 text-xs mb-3">
+                              <div className="flex items-center gap-1 text-zinc-400">
+                                <Users className="w-3.5 h-3.5 text-green-400" />
+                                <span className="text-white font-medium">
+                                  {room.participantCount}
+                                </span>
+                                <span>/{room.maxParticipants || "∞"}</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-zinc-400">
+                                <Upload className="w-3.5 h-3.5 text-green-400" />
+                                <span className="text-white font-medium">
+                                  {room.fileCount}
+                                </span>
+                                <span>files</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-zinc-400">
+                                <Eye className="w-3.5 h-3.5 text-green-400" />
+                                <span className="text-white font-medium">
+                                  {room.totalVisitors}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-3 border-t border-zinc-800">
+                              <div className="flex items-center gap-1 text-xs text-zinc-500">
+                                <Clock className="w-3 h-3" />
+                                <span>
+                                  {formatTimeRemaining(room.expiresAt)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 text-xs font-medium text-green-400">
+                                <span>Open</span>
+                                <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2 mt-3 pt-3 border-t border-zinc-800">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFeatured(room.id, false);
+                              }}
+                              className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs rounded-lg transition-all border border-zinc-700"
+                              title="Remove from featured"
+                            >
+                              <Star className="w-3 h-3" />
+                              <span>Unfeature</span>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                              }}
+                              className="flex items-center justify-center gap-1 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs rounded-lg transition-all border border-zinc-700"
+                              title="Room settings"
+                            >
+                              <Settings className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="relative h-full">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Star className="w-5 h-5 text-green-400 fill-green-400" />
+                      Featured
                     </h3>
                   </div>
-                  <p className="text-neutral-300 text-sm mb-5">
-                    Join a share session
-                  </p>
-
-                  <button
-                    onClick={() => setView("receiver")}
-                    className="w-full bg-emerald-600/80 hover:bg-emerald-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 hover:scale-105 flex items-center justify-center gap-2 shadow-lg hover:shadow-emerald-500/30"
-                  >
-                    <span>Join with Code</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-
-                  <p className="text-xs text-emerald-400 mt-4 flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    Enter a code to receive files
-                  </p>
+                  <div className="relative bg-zinc-900/50 backdrop-blur-md border border-zinc-800 border-dashed rounded-2xl p-8 h-[calc(100%-3rem)] flex flex-col items-center justify-center">
+                    <Star className="w-12 h-12 text-green-400/30 mb-4" />
+                    <p className="text-zinc-500 text-center mb-4 text-sm">
+                      No featured rooms yet
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
-        </section>
 
-        {featuredRooms.length > 0 && (
-          <section className="mb-8 bg-gradient-to-r from-yellow-900/30 via-amber-900/30 to-yellow-900/30 backdrop-blur-xl rounded-2xl border border-yellow-500/30 p-6 sm:p-8 animate-fade-in">
+          <div>
             <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+                <Globe className="w-6 h-6 text-green-400" />
+                Public Rooms
+              </h3>
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-yellow-500/20 rounded-xl flex items-center justify-center">
-                  <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                    My Featured Rooms
-                  </h2>
-                  <p className="text-neutral-300 text-sm">
-                    Your personalized room collection • {featuredRooms.length}{" "}
-                    {featuredRooms.length === 1 ? "room" : "rooms"}
-                  </p>
-                </div>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="hidden sm:block px-4 py-2 bg-zinc-900 border border-zinc-800 text-zinc-300 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50 hover:border-green-500/50 transition-all"
+                >
+                  <option value="recent">Most Recent</option>
+                  <option value="popular">Most Popular</option>
+                  <option value="mostFiles">Most Files</option>
+                  <option value="leastCrowded">Least Crowded</option>
+                </select>
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="hidden sm:flex items-center gap-2 px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-all border border-green-500/30 font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="text-sm">Create</span>
+                </button>
+                <button
+                  onClick={() => setShowPublicRooms(true)}
+                  className="hidden sm:flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-all border border-zinc-700 hover:border-green-500/50"
+                >
+                  <span className="text-sm font-medium">View All</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
               </div>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 rounded-lg transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="text-sm font-medium">New Room</span>
-              </button>
             </div>
 
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {featuredRooms.map((room) => (
-                <div
-                  key={room.id}
-                  className="group relative overflow-hidden bg-gradient-to-br from-neutral-800/90 to-neutral-900/90 border border-yellow-500/40 hover:border-yellow-400/60 rounded-xl p-5 transition-all duration-300 hover:shadow-xl hover:shadow-yellow-500/20"
+            {roomsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-8 h-8 border-4 border-zinc-800 border-t-green-500 rounded-full animate-spin" />
+              </div>
+            ) : isError ? (
+              <div className="text-center py-12">
+                <ErrorMessage
+                  message={error?.message || "Failed to load rooms"}
+                  className="mx-auto max-w-md mb-4"
+                />
+                <button
+                  onClick={handleManualRefresh}
+                  className="mt-4 px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-all shadow-lg shadow-green-500/50"
                 >
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/10 rounded-full blur-2xl group-hover:bg-yellow-500/15 transition-all" />
-
-                  <div className="absolute top-3 right-3 w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center border border-yellow-500/40">
-                    <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-                  </div>
-
-                  <div className="relative">
+                  Retry
+                </button>
+              </div>
+            ) : publicRooms.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-12 max-w-md mx-auto">
+                  <Globe className="w-16 h-16 mx-auto mb-4 text-zinc-700" />
+                  <p className="text-zinc-400 mb-6">
+                    No public rooms yet. Be the first to create one!
+                  </p>
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-500 hover:to-emerald-600 text-white font-bold rounded-lg transition-all shadow-lg shadow-green-500/50"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span>Create Room</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                  {publicRooms.slice(0, 12).map((room) => (
                     <div
-                      className="cursor-pointer"
+                      key={room.id}
                       onClick={() => handleJoinRoom(room.roomCode)}
+                      className="relative group cursor-pointer"
                     >
-                      <div className="flex items-start justify-between mb-3 pr-8">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-2xl">{room.roomIcon}</span>
-                            <h3 className="font-bold text-white text-lg group-hover:text-yellow-400 transition-colors line-clamp-1">
-                              {room.roomName || "Untitled Room"}
-                            </h3>
+                      <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-emerald-600/10 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                      <div className="relative bg-zinc-900/80 backdrop-blur-sm border border-zinc-800 rounded-xl p-4 hover:bg-zinc-900 hover:border-green-500/50 transition-all duration-300 h-full flex flex-col">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xl">{room.roomIcon}</span>
+                              <h4 className="text-sm font-bold text-white truncate">
+                                {room.roomName || "Untitled"}
+                              </h4>
+                            </div>
+                            <p className="text-xs text-zinc-500 truncate">
+                              by {room.creatorAnimalName}
+                            </p>
                           </div>
-                          <p className="text-xs text-neutral-400">
-                            by {room.creatorAnimalName}
-                          </p>
                         </div>
-                      </div>
 
-                      <div className="mb-3">
-                        <div className="px-2 py-1 bg-yellow-500/20 text-yellow-300 text-xs font-mono font-bold rounded border border-yellow-500/30 inline-block">
-                          {room.roomCode}
+                        <div className="space-y-2 mb-3 text-xs">
+                          <div className="flex items-center justify-between text-zinc-400">
+                            <div className="flex items-center gap-1">
+                              <Users className="w-3.5 h-3.5 text-green-400" />
+                              <span className="text-white font-medium">
+                                {room.participantCount}
+                              </span>
+                              <span className="text-zinc-500">
+                                /{room.maxParticipants || "∞"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Upload className="w-3.5 h-3.5 text-green-400" />
+                              <span className="text-white font-medium">
+                                {room.fileCount}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 text-zinc-500">
+                            <Eye className="w-3.5 h-3.5" />
+                            <span className="text-white font-medium">
+                              {room.totalVisitors}
+                            </span>
+                            <span>views</span>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-400 mb-3">
-                        <div className="flex items-center gap-1">
-                          <Users className="w-3.5 h-3.5 text-yellow-400" />
-                          <span className="text-white font-medium">
-                            {room.participantCount}
-                          </span>
-                          <span>/{room.maxParticipants || "∞"}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Upload className="w-3.5 h-3.5 text-emerald-400" />
-                          <span className="text-white font-medium">
-                            {room.fileCount}
-                          </span>
-                          <span>files</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Eye className="w-3.5 h-3.5 text-neutral-400" />
-                          <span className="text-white font-medium">
-                            {room.totalVisitors}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-3 border-t border-neutral-700/50">
-                        <div className="flex items-center gap-1 text-xs text-neutral-500">
-                          <Clock className="w-3 h-3" />
-                          <span>{formatTimeRemaining(room.expiresAt)}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs font-medium text-yellow-400 group-hover:text-yellow-300">
-                          <span>Open</span>
-                          <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                        <div className="mt-auto pt-3 border-t border-zinc-800">
+                          <div className="flex items-center justify-between text-xs">
+                            <div className="flex items-center gap-1 text-zinc-500">
+                              <Clock className="w-3 h-3" />
+                              <span>{formatTimeRemaining(room.expiresAt)}</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-green-400 font-medium">
+                              <span>Join</span>
+                              <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
+                  ))}
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="sm:hidden flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-all border border-green-500/30 font-medium"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Create Room</span>
+                  </button>
+                  <button
+                    onClick={() => setShowPublicRooms(true)}
+                    className="sm:hidden flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-all border border-zinc-700"
+                  >
+                    <span>View All</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
 
-                    <div className="flex gap-2 mt-3 pt-3 border-t border-neutral-700/30">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFeatured(room.id, false);
-                        }}
-                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-neutral-700/50 hover:bg-neutral-700 text-neutral-300 text-xs rounded-lg transition-all"
-                        title="Remove from featured"
-                      >
-                        <Star className="w-3 h-3" />
-                        <span>Unfeature</span>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // Handle room settings/management
-                        }}
-                        className="flex items-center justify-center gap-1 px-3 py-2 bg-neutral-700/50 hover:bg-neutral-700 text-neutral-300 text-xs rounded-lg transition-all"
-                        title="Room settings"
-                      >
-                        <Settings className="w-3 h-3" />
-                      </button>
+        <section className="relative z-10 py-20 border-t border-green-500/10 bg-gradient-to-b from-black to-zinc-950">
+          <div className="max-w-7xl mx-auto px-6">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl font-bold text-white mb-4">
+                Why Choose QuickShare?
+              </h2>
+              <p className="text-zinc-400 text-lg max-w-2xl mx-auto">
+                The fastest, most secure way to share files. No middleman, no
+                compromises.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {whyReasons.map((reason) => (
+                <div key={reason.title} className="relative group">
+                  <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-emerald-600/10 rounded-2xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <div className="relative bg-zinc-900/80 backdrop-blur-md border border-zinc-800 rounded-2xl p-6 h-full hover:bg-zinc-900 hover:border-green-500/50 transition-all duration-300">
+                    <div className="p-3 rounded-xl bg-gradient-to-br from-green-500/20 to-emerald-600/20 w-fit mb-4 border border-green-500/30">
+                      <reason.icon className="w-6 h-6 text-green-400" />
                     </div>
+
+                    <h3 className="text-xl font-bold text-white mb-3">
+                      {reason.title}
+                    </h3>
+                    <p className="text-zinc-400 leading-relaxed">
+                      {reason.description}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
 
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="sm:hidden w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 rounded-lg transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="font-medium">Create New Room</span>
-            </button>
-          </section>
-        )}
-
-        <section className="mb-8 bg-gradient-to-r from-neutral-800/60 via-neutral-900/60 to-neutral-800/60 backdrop-blur-xl rounded-2xl border border-neutral-700/50 p-6 sm:p-8 animate-fade-in">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-green-500/10 rounded-xl flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-green-400" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-white">Public Rooms</h2>
-                <p className="text-neutral-300 text-sm">
-                  Discover and join community rooms
-                </p>
+            <div className="text-center mt-16">
+              <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-zinc-900/80 border border-green-500/30">
+                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                <span className="text-white/90 font-medium">
+                  Join {stats.totalSessions.toLocaleString()}+ active sessions
+                </span>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="hidden sm:block px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-300 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50 hover:border-neutral-600 transition-all"
-              >
-                <option value="recent">Most Recent</option>
-                <option value="popular">Most Popular</option>
-                <option value="mostFiles">Most Files</option>
-                <option value="leastCrowded">Least Crowded</option>
-              </select>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                <span className="text-sm font-medium">Create</span>
-              </button>
-              <button
-                onClick={() => setShowPublicRooms(true)}
-                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-neutral-700/50 hover:bg-neutral-700 text-neutral-300 rounded-lg transition-all"
-              >
-                <span className="text-sm font-medium">View All</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {roomsLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="w-8 h-8 border-4 border-neutral-700 border-t-green-500 rounded-full animate-spin" />
-            </div>
-          ) : isError ? (
-            <div className="text-center py-12">
-              <ErrorMessage
-                message={
-                  error?.message ||
-                  "Failed to load public rooms. Please try again."
-                }
-                className="mx-auto max-w-md mb-4"
-              />
-              <button
-                onClick={handleManualRefresh}
-                className="mt-4 px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg transition-all hover:scale-105 shadow-lg shadow-green-500/20"
-              >
-                Retry
-              </button>
-            </div>
-          ) : publicRooms.length === 0 ? (
-            <div className="text-center py-12 text-neutral-400">
-              <Globe className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p className="mb-4">
-                No public rooms yet. Be the first to create one!
-              </p>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-green-600/80 hover:bg-green-600 text-white font-semibold rounded-lg transition-all hover:scale-105"
-              >
-                <Plus className="w-5 h-5" />
-                <span>Create Room</span>
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {publicRooms.slice(0, 6).map((room) => (
-                  <div
-                    key={room.id}
-                    onClick={() => handleJoinRoom(room.roomCode)}
-                    className="group relative overflow-hidden bg-gradient-to-br from-neutral-800/80 to-neutral-900/80 hover:from-neutral-800 hover:to-neutral-900 border border-neutral-700/50 hover:border-green-500/50 rounded-xl p-5 transition-all duration-300 cursor-pointer hover:scale-105 hover:shadow-lg hover:shadow-green-500/10"
-                  >
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-green-500/5 rounded-full blur-2xl group-hover:bg-green-500/10 transition-all" />
-
-                    <div className="relative">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-2xl">{room.roomIcon}</span>
-                            <h3 className="font-bold text-white text-lg group-hover:text-green-400 transition-colors line-clamp-1">
-                              {room.roomName || "Untitled Room"}
-                            </h3>
-                          </div>
-                          <p className="text-xs text-neutral-400">
-                            by {room.creatorAnimalName}
-                          </p>
-                        </div>
-                        <div className="px-2 py-1 bg-green-500/20 text-green-300 text-xs font-mono font-bold rounded border border-green-500/30">
-                          {room.roomCode}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-400 mb-3">
-                        <div className="flex items-center gap-1">
-                          <Users className="w-3.5 h-3.5 text-green-400" />
-                          <span className="text-white font-medium">
-                            {room.participantCount}
-                          </span>
-                          <span>/{room.maxParticipants || "∞"}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Upload className="w-3.5 h-3.5 text-emerald-400" />
-                          <span className="text-white font-medium">
-                            {room.fileCount}
-                          </span>
-                          <span>files</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Eye className="w-3.5 h-3.5 text-neutral-400" />
-                          <span className="text-white font-medium">
-                            {room.totalVisitors}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between pt-3 border-t border-neutral-700/50">
-                        <div className="flex items-center gap-1 text-xs text-neutral-500">
-                          <Clock className="w-3 h-3" />
-                          <span>{formatTimeRemaining(room.expiresAt)}</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs font-medium text-green-400 group-hover:text-green-300">
-                          <span>Join</span>
-                          <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex gap-3 mt-4">
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="sm:hidden flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg transition-all"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span className="font-medium">Create Room</span>
-                </button>
-                <button
-                  onClick={() => setShowPublicRooms(true)}
-                  className="sm:hidden flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-neutral-700/50 hover:bg-neutral-700 text-neutral-300 rounded-lg transition-all"
-                >
-                  <span className="font-medium">View All</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            </>
-          )}
-        </section>
-
-        <section
-          className="mb-8 bg-neutral-800/30 backdrop-blur rounded-2xl border border-neutral-700 p-8 sm:p-12"
-          aria-labelledby="features-heading"
-        >
-          <h2
-            id="features-heading"
-            className="text-3xl font-bold text-white mb-10 text-center"
-          >
-            Why QuickShare?
-          </h2>
-
-          <div className="grid sm:grid-cols-3 gap-8">
-            <article className="flex flex-col items-center text-center">
-              <div
-                className="w-12 h-12 bg-green-500/10 rounded-xl flex items-center justify-center mb-4"
-                aria-hidden="true"
-              >
-                <svg
-                  className="w-6 h-6 text-green-500"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-label="Security icon"
-                >
-                  <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">
-                Secure & Private
-              </h3>
-              <p className="text-neutral-400">
-                Direct peer-to-peer transfer. Zero server uploads.
-              </p>
-            </article>
-
-            <article className="flex flex-col items-center text-center">
-              <div
-                className="w-12 h-12 bg-yellow-500/10 rounded-xl flex items-center justify-center mb-4"
-                aria-hidden="true"
-              >
-                <svg
-                  className="w-6 h-6 text-yellow-500"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-label="Speed icon"
-                >
-                  <path d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">
-                Fast Transfer
-              </h3>
-              <p className="text-neutral-400">
-                Lightning-fast transfers. Unlimited file sizes.
-              </p>
-            </article>
-
-            <article className="flex flex-col items-center text-center">
-              <div
-                className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mb-4"
-                aria-hidden="true"
-              >
-                <svg
-                  className="w-6 h-6 text-purple-500"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  aria-label="Global icon"
-                >
-                  <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">
-                Works Everywhere
-              </h3>
-              <p className="text-neutral-400">
-                Any device. Any browser. No installation.
-              </p>
-            </article>
           </div>
         </section>
 
-        <footer className="text-center py-4">
-          <p className="text-neutral-400 text-sm">
-            Made with <span className="text-red-500">❤️</span> by{" "}
-            <a
-              href="https://github.com/rayanweragala"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-semibold text-green-400 hover:underline"
-            >
-              Rayan
-            </a>
-          </p>
+        <footer className="relative z-10 border-t border-green-500/10 py-8 bg-black">
+          <div className="max-w-7xl mx-auto px-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="text-zinc-400 text-sm">
+                Made with <span className="text-red-500">❤️</span> by{" "}
+                <a
+                  href="https://github.com/rayanweragala"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-green-400 hover:text-green-300 transition-colors"
+                >
+                  Rayan
+                </a>
+              </div>
+              <div className="flex items-center gap-6">
+                <a
+                  href="#"
+                  className="text-sm text-zinc-400 hover:text-green-400 transition-colors"
+                >
+                  Privacy
+                </a>
+                <a
+                  href="#"
+                  className="text-sm text-zinc-400 hover:text-green-400 transition-colors"
+                >
+                  Terms
+                </a>
+                <a
+                  href="#"
+                  className="text-sm text-zinc-400 hover:text-green-400 transition-colors"
+                >
+                  Support
+                </a>
+              </div>
+            </div>
+          </div>
         </footer>
       </main>
 
@@ -698,7 +762,7 @@ function App() {
         room={createdRoom}
       />
 
-      <PublicRoomsList
+      <RoomsList
         onJoinRoom={handleJoinRoom}
         isOpen={showPublicRooms}
         onClose={() => setShowPublicRooms(false)}

@@ -42,7 +42,7 @@ const FileCard = ({
   };
 
   const getFileColor = (fileType) => {
-    if (!fileType) return "from-neutral-500/20 to-neutral-600/20";
+    if (!fileType) return "from-zinc-500/20 to-zinc-600/20";
     
     if (fileType.startsWith("image/"))
       return "from-blue-500/20 to-blue-600/20";
@@ -89,7 +89,7 @@ const FileCard = ({
   const isThisFileDownloading = isDownloading;
 
   return (
-    <div className="group relative bg-neutral-800/50 rounded-xl border border-neutral-700/50 hover:border-green-500/30 hover:shadow-lg hover:shadow-green-500/5 transition-all duration-300">
+    <div className="group relative bg-zinc-800/50 rounded-xl border border-zinc-700 hover:border-green-500/50 hover:shadow-lg hover:shadow-green-500/10 transition-all duration-300">
       <div className="p-4">
         <div className="flex items-start gap-4">
           <div
@@ -106,17 +106,17 @@ const FileCard = ({
                 <h4 className="font-semibold text-white truncate text-base mb-1">
                   {file.fileName}
                 </h4>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
                   <span className="flex items-center gap-1">
-                    <span className="w-1 h-1 bg-neutral-500 rounded-full"></span>
+                    <span className="w-1 h-1 bg-zinc-500 rounded-full"></span>
                     {formatBytes(file.fileSize)}
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="w-1 h-1 bg-neutral-500 rounded-full"></span>
+                    <span className="w-1 h-1 bg-zinc-500 rounded-full"></span>
                     {file.uploaderAnimalName}
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="w-1 h-1 bg-neutral-500 rounded-full"></span>
+                    <span className="w-1 h-1 bg-zinc-500 rounded-full"></span>
                     {formatTimeAgo(file.uploadedAt)}
                   </span>
                 </div>
@@ -125,7 +125,7 @@ const FileCard = ({
               <div className="relative">
                 <button
                   onClick={() => setShowMenu(!showMenu)}
-                  className="p-1 hover:bg-neutral-700 rounded-lg text-neutral-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
+                  className="p-1 hover:bg-zinc-700 rounded-lg text-zinc-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
                 >
                   <MoreVertical className="w-4 h-4" />
                 </button>
@@ -136,10 +136,10 @@ const FileCard = ({
                       className="fixed inset-0 z-10"
                       onClick={() => setShowMenu(false)}
                     />
-                    <div className="absolute right-0 top-8 z-20 w-48 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl overflow-hidden">
+                    <div className="absolute right-0 top-8 z-20 w-48 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl overflow-hidden">
                       <button
                         onClick={handleCopyLink}
-                        className="w-full px-4 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-700 flex items-center gap-2"
+                        className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
                       >
                         <Copy className="w-4 h-4" />
                         Copy Link
@@ -149,7 +149,7 @@ const FileCard = ({
                           window.open(file.downloadUrl, "_blank");
                           setShowMenu(false);
                         }}
-                        className="w-full px-4 py-2 text-left text-sm text-neutral-300 hover:bg-neutral-700 flex items-center gap-2"
+                        className="w-full px-4 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-700 flex items-center gap-2"
                       >
                         <ExternalLink className="w-4 h-4" />
                         Open in New Tab
@@ -161,9 +161,9 @@ const FileCard = ({
             </div>
 
             <div className="flex items-center gap-2 mt-3">
-              <div className="flex items-center gap-1.5 px-2 py-1 bg-neutral-700/50 rounded-md">
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-zinc-700/50 rounded-md">
                 <Download className="w-3 h-3 text-green-400" />
-                <span className="text-xs font-medium text-neutral-300">
+                <span className="text-xs font-medium text-zinc-300">
                   {file.downloadCount} downloads
                 </span>
               </div>
@@ -171,11 +171,11 @@ const FileCard = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 mt-4 pt-4 border-t border-neutral-700/50">
+        <div className="flex items-center gap-2 mt-4 pt-4 border-t border-zinc-700">
           <button
             onClick={() => onDownload(file)}
             disabled={isThisFileDownloading}
-            className="flex-1 px-4 py-2 bg-green-600/80 hover:bg-green-600 disabled:bg-neutral-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+            className="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 disabled:bg-zinc-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
           >
             {isThisFileDownloading ? (
               <>
@@ -200,13 +200,13 @@ const FileCard = ({
                       setDeleteConfirm(false);
                     }}
                     disabled={isDeleting}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-neutral-700 text-white font-semibold rounded-lg transition-colors text-sm"
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-zinc-700 text-white font-semibold rounded-lg transition-colors text-sm"
                   >
                     {isDeleting ? "Deleting..." : "Confirm"}
                   </button>
                   <button
                     onClick={() => setDeleteConfirm(false)}
-                    className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white font-semibold rounded-lg transition-colors text-sm"
+                    className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white font-semibold rounded-lg transition-colors text-sm"
                   >
                     Cancel
                   </button>
@@ -214,7 +214,7 @@ const FileCard = ({
               ) : (
                 <button
                   onClick={() => setDeleteConfirm(true)}
-                  className="px-4 py-2 hover:bg-red-500/20 border border-neutral-700 hover:border-red-500/30 rounded-lg text-neutral-400 hover:text-red-400 transition-all"
+                  className="px-4 py-2 hover:bg-red-500/20 border border-zinc-700 hover:border-red-500/30 rounded-lg text-zinc-400 hover:text-red-400 transition-all"
                   title="Delete file"
                 >
                   <Trash2 className="w-4 h-4" />

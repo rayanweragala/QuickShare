@@ -24,6 +24,14 @@ const roomAPI = {
     return response.json();
   },
 
+  getPrivateRooms: async (page = 0, size = 10) => {
+    const response = await fetch(
+      `${API_BASE_URL}/rooms/private?page=${page}&size=${size}`
+    );
+    if (!response.ok) throw new Error("Failed to fetch private rooms");
+    return response.json();
+  },
+
   searchRooms: async (query, page = 0, size = 10) => {
     const response = await fetch(
       `${API_BASE_URL}/rooms/public/search?search=${query}&page=${page}&size=${size}`
@@ -45,6 +53,14 @@ const roomAPI = {
     if (!response.ok) throw new Error("Failed to search rooms");
     return response.json();
   },
+
+  searchPrivateRooms: async (query, page = 0, size = 10) => {
+  const response = await fetch(
+    `${API_BASE_URL}/rooms/private/search?search=${query}&page=${page}&size=${size}`
+  );
+  if (!response.ok) throw new Error("Failed to search private rooms");
+  return response.json();
+},
 
   joinRoom: async (roomCode, socketId, userId) => {
     const response = await fetch(`${API_BASE_URL}/rooms/${roomCode}/join`, {

@@ -87,8 +87,15 @@ public class RoomController {
     @GetMapping("/public")
     @Operation(summary = "List public rooms", description = "Get paginated list of public rooms")
     public ResponseEntity<Page<RoomResponse>> getPublicRooms(Pageable pageable) {
-        Page<RoomResponse> rooms = roomService.getPublicRooms(pageable);
-        return ResponseEntity.ok(rooms);
+        Page<RoomResponse> publicRooms = roomService.getPublicRooms(pageable);
+        return ResponseEntity.ok(publicRooms);
+    }
+
+    @GetMapping("/private")
+    @Operation(summary = "List private rooms", description = "Get paginated list of private rooms")
+    public ResponseEntity<Page<RoomResponse>> getPrivateRooms(Pageable pageable) {
+        Page<RoomResponse> privateRooms = roomService.getPrivateRooms(pageable);
+        return ResponseEntity.ok(privateRooms);
     }
 
     @GetMapping("/public/search")
@@ -96,8 +103,17 @@ public class RoomController {
     public ResponseEntity<Page<RoomResponse>> searchPublicRooms(
             @RequestParam String search,
             Pageable pageable) {
-        Page<RoomResponse> rooms = roomService.searchPublicRooms(search, pageable);
-        return ResponseEntity.ok(rooms);
+        Page<RoomResponse> publicRooms = roomService.searchPublicRooms(search, pageable);
+        return ResponseEntity.ok(publicRooms);
+    }
+
+    @GetMapping("/private/search")
+    @Operation(summary = "Search private rooms", description = "Search private rooms by name or room code")
+    public ResponseEntity<Page<RoomResponse>> searchPrivateRooms(
+            @RequestParam String search,
+            Pageable pageable) {
+        Page<RoomResponse> privateRooms = roomService.searchPrivateRooms(search,pageable);
+        return ResponseEntity.ok(privateRooms);
     }
 
     @DeleteMapping("/{roomId}")
