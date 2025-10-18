@@ -25,6 +25,25 @@ public class SocketIOEventHandler {
     private final SocketIOServer socketIOServer;
     private final SessionService sessionService;
 
+    private SocketIOClient getClientBySocketId(String socketId) {
+        if (socketId == null) {
+            return null;
+        }
+        try {
+            UUID uuid = UUID.fromString(socketId);
+            return socketIOServer.getClient(uuid);
+        } catch (IllegalArgumentException e) {
+            LoggerUtil.dev("Socket ID is not a UUID, searching clients: " + socketId);
+            for (SocketIOClient client : socketIOServer.getAllClients()) {
+                if (socketId.equals(client.getSessionId().toString())) {
+                    return client;
+                }
+            }
+            LoggerUtil.warn(SocketIOEventHandler.class, "Client not found for socketId: " + socketId);
+            return null;
+        }
+    }
+
     /**
      * called when client connects to socketIO server
      */
@@ -33,25 +52,17 @@ public class SocketIOEventHandler {
         String sessionId = client.getHandshakeData().getSingleUrlParam("sessionId");
         String role = client.getHandshakeData().getSingleUrlParam("role");
 
-        LoggerUtil.audit("socketIO connected for socketId=" + client.getSessionId() + ",sessionId=" +sessionId + ",role=" + role);
+        if (sessionId != null && role != null) {
+            String realSocketId = client.getSessionId().toString();
 
-        client.set("sessionId",sessionId);
-        client.set("role",role);
-
-        if(sessionId != null && !sessionId.isEmpty()){
-            Session session = sessionService.getSession(sessionId);
-
-            if(session != null){
-                if("sender".equalsIgnoreCase(role)){
-                    session.setSenderSocketId(client.getSessionId().toString());
-                } else if("receiver".equalsIgnoreCase(role)){
-                    session.setReceiverSocketId(client.getSessionId().toString());
-                }
-
-                session.updateActivity();
-                sessionService.updateSessionStatus(sessionId, SessionStatus.CONNECTED);
-
-                LoggerUtil.audit("session socket updated for sessionId=" + sessionId + ",role=" + role);
+            if ("sender".equals(role)) {
+                sessionService.updateSenderSocketId(sessionId.toUpperCase(), realSocketId);
+                LoggerUtil.audit("socketIO connected for socketId=" + realSocketId +
+                        ",sessionId=" + sessionId + ",role=sender");
+            } else if ("receiver".equals(role)) {
+                sessionService.updateReceiverSocketId(sessionId.toUpperCase(), realSocketId);
+                LoggerUtil.audit("socketIO connected for socketId=" + realSocketId +
+                        ",sessionId=" + sessionId + ",role=receiver");
             }
         }
     }
@@ -99,9 +110,14 @@ public class SocketIOEventHandler {
         message.setTo(session.getReceiverSocketId());
         message.setTimestamp(System.currentTimeMillis());
 
-        socketIOServer.getClient(UUID.fromString(session.getReceiverSocketId())).sendEvent("offer",message);
-
-        LoggerUtil.audit("offer routed to receiver for sessionId=" + sessionId);
+        SocketIOClient receiverClient = getClientBySocketId(session.getReceiverSocketId());
+        if (receiverClient != null) {
+            receiverClient.sendEvent("offer", message);
+            LoggerUtil.audit("offer routed to receiver for sessionId=" + sessionId);
+        } else {
+            LoggerUtil.warn(SocketIOEventHandler.class, "receiver client not found for socketId=" + session.getReceiverSocketId());
+            client.sendEvent("error", "receiver not available");
+        }
     }
 
     /**
@@ -117,7 +133,6 @@ public class SocketIOEventHandler {
 
         if(session == null){
             LoggerUtil.warn(SocketIOEventHandler.class,"answer rejected, session not found for sessionId=" + sessionId);
-
             client.sendEvent("error", "session not found");
             return;
         }
@@ -132,8 +147,14 @@ public class SocketIOEventHandler {
         message.setTo(session.getSenderSocketId());
         message.setTimestamp(System.currentTimeMillis());
 
-        socketIOServer.getClient(UUID.fromString(session.getSenderSocketId())).sendEvent("answer",message);
-        LoggerUtil.audit("answer routed to sender for sessionId=" + sessionId);
+        SocketIOClient senderClient = getClientBySocketId(session.getSenderSocketId());
+        if (senderClient != null) {
+            senderClient.sendEvent("answer", message);
+            LoggerUtil.audit("answer routed to sender for sessionId=" + sessionId);
+        } else {
+            LoggerUtil.warn(SocketIOEventHandler.class, "sender client not found for socketId=" + session.getSenderSocketId());
+            client.sendEvent("error", "sender not available");
+        }
     }
 
     /**
@@ -163,7 +184,7 @@ public class SocketIOEventHandler {
         }
 
         if(targetSocketId == null) {
-            LoggerUtil.warn(SocketIOEventHandler.class, "ice candidate rejected, target peer mor connected for sessionId= " + sessionId);
+            LoggerUtil.warn(SocketIOEventHandler.class, "ice candidate rejected, target peer not connected for sessionId= " + sessionId);
             return;
         }
 
@@ -171,9 +192,13 @@ public class SocketIOEventHandler {
         message.setTo(targetSocketId);
         message.setTimestamp(System.currentTimeMillis());
 
-        socketIOServer.getClient(UUID.fromString(targetSocketId)).sendEvent("ice-candidate",message);
-
-        LoggerUtil.dev("ice candidate routed for sessionId=" + sessionId);
+        SocketIOClient targetClient = getClientBySocketId(targetSocketId);
+        if (targetClient != null) {
+            targetClient.sendEvent("ice-candidate", message);
+            LoggerUtil.dev("ice candidate routed for sessionId=" + sessionId);
+        } else {
+            LoggerUtil.warn(SocketIOEventHandler.class, "target client not found for socketId=" + targetSocketId);
+        }
     }
 
     /**
@@ -189,7 +214,10 @@ public class SocketIOEventHandler {
 
         Session session = sessionService.getSession(sessionId);
         if(session != null && session.getReceiverSocketId() != null) {
-            socketIOServer.getClient(UUID.fromString(session.getReceiverSocketId())).sendEvent("transfer-start",message);
+            SocketIOClient receiverClient = getClientBySocketId(session.getReceiverSocketId());
+            if (receiverClient != null) {
+                receiverClient.sendEvent("transfer-start", message);
+            }
         }
     }
 
@@ -207,11 +235,52 @@ public class SocketIOEventHandler {
         Session session = sessionService.getSession(sessionId);
         if(session != null){
             if(session.getSenderSocketId() != null){
-                socketIOServer.getClient(UUID.fromString(session.getSenderSocketId())).sendEvent("transfer-complete",message);
+                SocketIOClient senderClient = getClientBySocketId(session.getSenderSocketId());
+                if (senderClient != null) {
+                    senderClient.sendEvent("transfer-complete", message);
+                }
             }
             if(session.getReceiverSocketId() != null){
-                socketIOServer.getClient(UUID.fromString(session.getReceiverSocketId())).sendEvent("transfer-complete",message);
+                SocketIOClient receiverClient = getClientBySocketId(session.getReceiverSocketId());
+                if (receiverClient != null) {
+                    receiverClient.sendEvent("transfer-complete", message);
+                }
             }
+        }
+    }
+
+    /**
+     * handle peer-ready signal from receiver
+     */
+    @OnEvent("peer-ready")
+    public void onPeerReady(SocketIOClient client, SignalingMessage message){
+        String sessionId = message.getSessionId();
+        String role = client.get("role");
+
+        LoggerUtil.audit("peer-ready received for sessionId=" + sessionId + ",from=" + role);
+
+        Session session = sessionService.getSession(sessionId);
+
+        if (session == null) {
+            LoggerUtil.warn(SocketIOEventHandler.class, "peer-ready rejected, session not found for sessionId=" + sessionId);
+            return;
+        }
+
+        if (session.getSenderSocketId() == null) {
+            LoggerUtil.warn(SocketIOEventHandler.class, "peer-ready rejected, sender not connected for sessionId=" + sessionId);
+            return;
+        }
+
+        message.setFrom(client.getSessionId().toString());
+        message.setTo(session.getSenderSocketId());
+        message.setTimestamp(System.currentTimeMillis());
+
+        SocketIOClient senderClient = getClientBySocketId(session.getSenderSocketId());
+        if (senderClient != null) {
+            senderClient.sendEvent("peer-ready", message);
+            LoggerUtil.audit("peer-ready signal routed to sender for sessionId=" + sessionId);
+        } else {
+            LoggerUtil.warn(SocketIOEventHandler.class, "sender client not found for socketId=" + session.getSenderSocketId());
         }
     }
 
@@ -241,9 +310,13 @@ public class SocketIOEventHandler {
                         .timestamp(System.currentTimeMillis())
                         .build();
 
-                socketIOServer.getClient(UUID.fromString(otherPeerSocketId)).sendEvent("peer-disconnected",disconnectMessage);
-
-                LoggerUtil.audit("peer disconnection notified for sessionId=" + sessionId);
+                SocketIOClient otherClient = getClientBySocketId(otherPeerSocketId);
+                if (otherClient != null) {
+                    otherClient.sendEvent("peer-disconnected", disconnectMessage);
+                    LoggerUtil.audit("peer disconnection notified for sessionId=" + sessionId);
+                } else {
+                    LoggerUtil.warn(SocketIOEventHandler.class, "other peer client not found for socketId=" + otherPeerSocketId);
+                }
             }catch (Exception e){
                 LoggerUtil.error(SocketIOEventHandler.class,"failed to notify peer disconnection for sessionId=" + sessionId, e);
             }

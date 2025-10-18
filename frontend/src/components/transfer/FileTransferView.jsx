@@ -1,9 +1,16 @@
 import { useState } from 'react';
 import { useFileTransfer } from '../../hooks/useFileTransfer';
-import { Card, Button, ProgressBar, ErrorMessage } from '../common';
+import { Button, ErrorMessage } from '../common';
 import { FileSelector } from './FileSelector';
 import { TransferStatus } from './TransferStatus';
-import { formatFileSize } from '../../utils/file.utils';
+
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+};
 
 export const FileTransferView = ({ role }) => {
   const {
@@ -46,44 +53,42 @@ export const FileTransferView = ({ role }) => {
         <FileSelector onFileSelect={handleFileSelect} />
 
         {selectedFile && (
-          <Card variant="elevated" padding="lg">
+          <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 animate-fade-in">
             <div className="flex items-start justify-between gap-4 mb-6">
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-neutral-900 mb-2">
+                <h3 className="text-2xl font-bold text-white mb-3">
                   Ready to Send
                 </h3>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-neutral-600">
-                  <span className="font-medium text-neutral-900">{selectedFile.name}</span>
-                  <span className="hidden sm:inline">•</span>
-                  <span>{formatFileSize(selectedFile.size)}</span>
+                <div className="flex flex-col gap-2">
+                  <span className="font-medium text-green-400 text-lg">{selectedFile.name}</span>
+                  <span className="text-neutral-400 text-sm">{formatFileSize(selectedFile.size)}</span>
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
+              <button
                 onClick={() => setSelectedFile(null)}
+                className="text-neutral-400 hover:text-white transition-colors"
               >
-                Change
-              </Button>
+                <svg className="w-6 h-6" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                  <path d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button
-                variant="primary"
-                fullWidth
+              <button
                 onClick={handleSendFile}
+                className="flex-1 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
               >
                 Send File
-              </Button>
-              <Button
-                variant="outline"
-                fullWidth
+              </button>
+              <button
                 onClick={() => setSelectedFile(null)}
+                className="flex-1 bg-neutral-700 hover:bg-neutral-600 active:bg-neutral-800 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200"
               >
                 Cancel
-              </Button>
+              </button>
             </div>
-          </Card>
+          </div>
         )}
       </div>
     );
@@ -91,32 +96,36 @@ export const FileTransferView = ({ role }) => {
 
   if (isSending || isReceiving) {
     return (
-      <Card variant="elevated" padding="lg">
+      <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 animate-fade-in">
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-neutral-900">
+            <h3 className="text-2xl font-bold text-white">
               {isSending ? 'Sending' : 'Receiving'} File
             </h3>
-            <Button
-              variant="ghost"
-              size="sm"
+            <button
               onClick={cancelTransfer}
+              className="text-neutral-400 hover:text-white transition-colors px-4 py-2"
             >
               Cancel
-            </Button>
+            </button>
           </div>
 
           {fileName && (
-            <p className="text-sm text-neutral-600 mb-4">
+            <p className="text-neutral-300 mb-6 text-lg">
               {fileName}
             </p>
           )}
 
-          <ProgressBar progress={progress} />
+          <div className="w-full bg-neutral-700 rounded-full overflow-hidden h-3 mb-4">
+            <div 
+              className="h-full bg-green-500 transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
 
-          <div className="mt-4 flex items-center justify-between text-sm text-neutral-600">
-            <span>Chunk {currentChunk} of {totalChunks}</span>
-            <span className="font-medium text-green-600">{Math.round(progress)}%</span>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-neutral-400">Chunk {currentChunk} of {totalChunks}</span>
+            <span className="font-medium text-green-400 text-lg">{Math.round(progress)}%</span>
           </div>
         </div>
 
@@ -125,16 +134,16 @@ export const FileTransferView = ({ role }) => {
           isReceiving={isReceiving}
           progress={progress}
         />
-      </Card>
+      </div>
     );
   }
 
   if (transferComplete) {
     return (
-      <Card variant="elevated" padding="lg" className="text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+      <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-12 text-center animate-fade-in">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/10 rounded-2xl mb-4 border border-green-500/20">
           <svg
-            className="w-8 h-8 text-green-600"
+            className="w-8 h-8 text-green-500"
             fill="none"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -146,10 +155,10 @@ export const FileTransferView = ({ role }) => {
           </svg>
         </div>
 
-        <h3 className="text-xl font-bold text-neutral-900 mb-2">
+        <h3 className="text-2xl font-bold text-white mb-2">
           Transfer Complete
         </h3>
-        <p className="text-neutral-600 mb-6">
+        <p className="text-neutral-400 mb-6">
           {role === 'sender' 
             ? 'File sent successfully'
             : 'File downloaded successfully'
@@ -157,30 +166,29 @@ export const FileTransferView = ({ role }) => {
         </p>
 
         {fileName && (
-          <p className="text-sm text-neutral-500 mb-6">
+          <p className="text-sm text-green-400 mb-6 font-medium">
             {fileName}
           </p>
         )}
 
         {role === 'sender' && (
-          <Button
-            variant="primary"
-            fullWidth
+          <button
             onClick={handleReset}
+            className="bg-green-600 hover:bg-green-700 active:bg-green-800 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
           >
             Send Another File
-          </Button>
+          </button>
         )}
-      </Card>
+      </div>
     );
   }
 
   if (role === 'receiver') {
     return (
-      <Card variant="elevated" padding="lg" className="text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-neutral-100 rounded-full mb-4">
+      <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-12 text-center animate-fade-in">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/10 rounded-2xl mb-4 border border-green-500/20">
           <svg
-            className="w-8 h-8 text-neutral-600 animate-pulse"
+            className="w-8 h-8 text-green-500 animate-pulse"
             fill="none"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -191,13 +199,13 @@ export const FileTransferView = ({ role }) => {
             <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
           </svg>
         </div>
-        <h3 className="text-lg font-semibold text-neutral-900 mb-2">
+        <h3 className="text-2xl font-bold text-white mb-2">
           Waiting for Files
         </h3>
-        <p className="text-sm text-neutral-600">
+        <p className="text-neutral-400">
           The sender will choose files to transfer
         </p>
-      </Card>
+      </div>
     );
   }
 
