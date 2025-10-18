@@ -34,6 +34,52 @@ public class RoomMapper {
                 .build();
     }
 
+    public static RoomResponse mapToPublicRoomResponse(Room room) {
+        return RoomResponse.builder()
+                .id(room.getId())
+                .roomCode(room.getRoomCode())
+                .roomName(room.getRoomName())
+                .roomIcon(room.getRoomIcon())
+                .creatorAnimalName(room.getCreatorAnimalName())
+                .visibility(room.getRoomVisibility())
+                .status(room.getStatus())
+                .participantCount(room.getParticipants().size())
+                .fileCount(room.getFiles().size())
+                .currentStorageBytes(room.getCurrentStorageBytes())
+                .maxStorageBytes(room.getMaxStorageBytes())
+                .creatorOnlyUpload(room.getCreatorOnlyUpload())
+                .createdAt(room.getCreatedAt().toString())
+                .expiresAt(room.getExpiresAt().toString())
+                .totalDownloads(room.getFiles().stream().mapToLong(RoomFile::getDownloadCount).sum())
+                .totalVisitors(room.getTotalVisitors())
+                .isExpired(room.isExpired())
+                .isFull(room.isFull())
+                .isFeatured(room.getIsFeatured())
+                .build();
+    }
+
+    public static RoomResponse mapToPrivateRoomResponse(Room room) {
+        return RoomResponse.builder()
+                .id(room.getId())
+                .roomName(room.getRoomName())
+                .roomIcon(room.getRoomIcon())
+                .creatorAnimalName(room.getCreatorAnimalName())
+                .visibility(room.getRoomVisibility())
+                .status(room.getStatus())
+                .participantCount(null)
+                .fileCount(null)
+                .currentStorageBytes(null)
+                .maxStorageBytes(null)
+                .creatorOnlyUpload(null)
+                .createdAt(null)
+                .expiresAt(null)
+                .totalDownloads(null)
+                .totalVisitors(null)
+                .isExpired(room.isExpired())
+                .isFull(room.isFull())
+                .isFeatured(room.getIsFeatured())
+                .build();
+    }
     public static ParticipantInfo mapToParticipantInfo(RoomParticipant participant){
         return ParticipantInfo.builder()
                 .socketId(participant.getSocketId())
