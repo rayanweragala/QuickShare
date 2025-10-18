@@ -4,6 +4,7 @@ import com.quickshare.backend.service.room.UsageLimitService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -21,12 +22,8 @@ public class SecurityInterceptor implements HandlerInterceptor {
     @Autowired
     private UsageLimitService usageLimitService;
 
-    private static final List<String> ALLOWED_ORIGINS = Arrays.asList(
-            "http://localhost:5173",
-            "http://localhost:3000",
-            "http://localhost:8080",
-            "https://localshare-15ui.onrender.com"
-    );
+    @Value("${cors.allowed-origins}")
+    private List<String> allowedOrigins;
 
     @Override
     public boolean preHandle(HttpServletRequest request,
@@ -128,7 +125,7 @@ public class SecurityInterceptor implements HandlerInterceptor {
             return true; // must change this when deploying on live
         }
 
-        return ALLOWED_ORIGINS.stream()
+        return allowedOrigins.stream()
                 .anyMatch(origin::startsWith);
     }
 
