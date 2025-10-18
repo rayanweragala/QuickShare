@@ -129,7 +129,7 @@ public class CloudflareR2Service {
      * for R2, you can configure a public domain in Cloudflare dashboard
      */
     public String getPublicUrl(String key) {
-        return endPoint.replace("https://", "https://pub-") + ".r2.dev/" + key;
+        return String.format("https://%s.%s.r2.cloudflarestorage.com/%s", bucketName, accountId, key);
     }
 
     /**
@@ -168,6 +168,30 @@ public class CloudflareR2Service {
             throw new RuntimeException("File not found: " + key);
         } catch (Exception e) {
             throw new RuntimeException("Failed to get file size: " + e.getMessage(), e);
+        }
+    }
+    public int cleanupIncompleteUploads() {
+        try {
+            ListMultipartUploadsRequest listRequest = ListMultipartUploadsRequest.builder()
+                    .bucket(bucketName)
+                    .build();
+
+            ListMultipartUploadsResponse response = s3Client.listMultipartUploads(listRequest);
+
+            int count = 0;
+            for (MultipartUpload upload : response.uploads()) {
+                AbortMultipartUploadRequest abortRequest = AbortMultipartUploadRequest.builder()
+                        .bucket(bucketName)
+                        .key(upload.key())
+                        .uploadId(upload.uploadId())
+                        .build();
+
+                s3Client.abortMultipartUpload(abortRequest);
+                count++;
+            }
+            return count;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to cleanup incomplete uploads: " + e.getMessage(), e);
         }
     }
 }

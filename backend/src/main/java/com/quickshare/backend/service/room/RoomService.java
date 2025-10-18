@@ -4,6 +4,7 @@ import com.quickshare.backend.component.RateLimitService;
 import com.quickshare.backend.dto.room.*;
 import com.quickshare.backend.entity.Room;
 import com.quickshare.backend.entity.RoomParticipant;
+import com.quickshare.backend.handler.WebSocketHandler;
 import com.quickshare.backend.mapper.RoomMapper;
 import com.quickshare.backend.model.enums.RoomStatus;
 import com.quickshare.backend.model.enums.RoomVisibility;
@@ -41,6 +42,7 @@ public class RoomService {
     private final CloudflareR2Service cloudflareR2Service;
     private final CacheService cacheService;
     private final RoomCacheService roomCacheService;
+    private final WebSocketHandler webSocketHandler;
     @Transactional
     @CacheEvict(value = {"publicRooms","rooms"}, allEntries = true)
     public RoomResponse createRoom(CreateRoomRequest request, String userUuid, String ipAddress) {
@@ -95,7 +97,6 @@ public class RoomService {
 
         room.addParticipant(creatorParticipant);
         roomRepository.save(room);
-
         cacheService.updateRoomInCache(room.getId(),RoomMapper.mapToRoomResponse(room));
         return RoomMapper.mapToRoomResponse(room);
     }
@@ -164,7 +165,15 @@ public class RoomService {
         if (room.getRoomVisibility() == RoomVisibility.PUBLIC) {
             cacheService.evictPublicRoomsCache();
         }
-        return roomCacheService.getRoomDetails(room.getId());
+        RoomDetailsResponse response = roomCacheService.getRoomDetails(room.getId());
+
+        try{
+            webSocketHandler.broadcastRoomUpdate(roomCode,response);
+        }catch (Exception e) {
+            LoggerUtil.error(RoomService.class,"Failed to broadcast room update after join=" + e.getMessage(), e);
+        }
+
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -222,6 +231,13 @@ public class RoomService {
         room.updateActivity();
 
         roomRepository.save(room);
+
+        try{
+            RoomDetailsResponse updatedRoom = getRoomDetails(roomId);
+            webSocketHandler.broadcastRoomUpdate(room.getRoomCode(), updatedRoom);
+        }catch (Exception e){
+            LoggerUtil.error(RoomService.class,"Failed to broadcast room update after leave=" + e.getMessage(), e);
+        }
     }
 
     @Transactional
@@ -234,14 +250,6 @@ public class RoomService {
         roomRepository.save(room);
     }
 
-    @Transactional
-    @CacheEvict(value = "roomDetails", key = "#roomId")
-    public void updateActivity(Long roomId) {
-        Room room = roomRepository.findById(roomId)
-                .orElseThrow(() -> new RuntimeException("room not found"));
-        room.updateActivity();
-        roomRepository.save(room);
-    }
 
     @Scheduled(cron = "0 0 * * * ?")
     @CacheEvict(value = {"rooms", "roomDetails", "publicRooms", "roomParticipants", "roomFiles"}, allEntries = true)

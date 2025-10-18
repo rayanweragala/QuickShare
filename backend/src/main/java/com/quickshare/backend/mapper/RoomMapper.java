@@ -53,6 +53,7 @@ public class RoomMapper {
                 .fileType(file.getFileType())
                 .fileSize(file.getFileSize())
                 .uploaderAnimalName(file.getUploaderAnimalName())
+                .uploaderUserId(file.getUploaderUserId())
                 .uploadedAt(file.getUploadedAt().toString())
                 .downloadCount(file.getDownloadCount())
                 .downloadUrl(file.getCloudFlareUrl())

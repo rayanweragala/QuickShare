@@ -19,7 +19,7 @@ const FileCard = ({
   onDownload,
   onDelete,
   canDelete,
-  downloadMutation,
+  isDownloading,
   isDeleting,
 }) => {
   const [showMenu, setShowMenu] = useState(false);
@@ -86,7 +86,7 @@ const FileCard = ({
     setShowMenu(false);
   };
 
-  const isThisFileDownloading = downloadMutation.isPending && downloadMutation.variables?.fileId === file.fileId;
+  const isThisFileDownloading = isDownloading;
 
   return (
     <div className="group relative bg-neutral-800/50 rounded-xl border border-neutral-700/50 hover:border-green-500/30 hover:shadow-lg hover:shadow-green-500/5 transition-all duration-300">
