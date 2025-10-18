@@ -9,12 +9,14 @@ spring:
   data:
     redis:
       url: rediss://default:AS70AAIncDJmYjRmYjY2N2NjM2E0MDQ0YjUxNmYyMDI3ZGQ5OWU4NHAyMTIwMjA@mighty-gobbler-12020.upstash.io:6379
-      timeout: 2000ms
+      connect-timeout: 10000ms
+      timeout: 5000ms
       lettuce:
         pool:
           max-active: 8
           max-idle: 8
           min-idle: 2
+          max-wait: PT10S
   web:
     resources:
       static-locations: classpath:/META-INF/resources/, classpath:/resources/, classpath:/static/, classpath:/public/
