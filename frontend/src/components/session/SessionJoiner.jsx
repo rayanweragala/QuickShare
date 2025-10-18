@@ -7,14 +7,13 @@ import { logger } from "../../utils/logger";
 import {
   Button,
   Card,
-  Input,
   StatusBadge,
   LoadingSpinner,
   ErrorMessage,
 } from "../common";
 import { FileTransferView } from "../transfer/FileTransferView";
 
-export const SessionJoiner = () => {
+export const SessionJoiner = ({onSessionEnd}) => {
   const [code, setCode] = useState("");
   const {
     session,
@@ -71,7 +70,9 @@ export const SessionJoiner = () => {
     await endSession();
     setShowTransfer(false);
     setCode("");
+    onSessionEnd?.();
   };
+
 
   if (!session) {
     return (
