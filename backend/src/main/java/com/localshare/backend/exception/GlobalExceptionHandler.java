@@ -2,6 +2,7 @@ package com.localshare.backend.exception;
 
 import com.localshare.backend.dto.SessionResponse;
 import com.localshare.backend.util.LoggerUtil;
+import org.apache.catalina.connector.ClientAbortException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -14,6 +15,11 @@ import org.springframework.web.context.request.WebRequest;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(ClientAbortException.class)
+    public void handleClientAbortException(ClientAbortException exception, WebRequest request){
+        LoggerUtil.dev("Client disconnected: " + exception.getMessage() + " for path=" + request.getDescription(false));
+    }
 
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<SessionResponse> handleIllegalState(IllegalStateException exception, WebRequest request){
