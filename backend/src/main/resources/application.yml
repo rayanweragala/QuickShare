@@ -93,6 +93,7 @@ cors:
     - http://localhost:3000
     - http://localhost:8080
     - https://localshare-15ui.onrender.com
+    - https://quickshare-xuck.onrender.com/
   allowed-methods:
     - GET
     - POST
