@@ -19,7 +19,7 @@ const FileCard = ({
   onDownload,
   onDelete,
   canDelete,
-  isDownloading,
+  downloadMutation,
   isDeleting,
 }) => {
   const [showMenu, setShowMenu] = useState(false);
@@ -85,6 +85,8 @@ const FileCard = ({
     }
     setShowMenu(false);
   };
+
+  const isThisFileDownloading = downloadMutation.isPending && downloadMutation.variables?.fileId === file.fileId;
 
   return (
     <div className="group relative bg-neutral-800/50 rounded-xl border border-neutral-700/50 hover:border-green-500/30 hover:shadow-lg hover:shadow-green-500/5 transition-all duration-300">
@@ -172,10 +174,10 @@ const FileCard = ({
         <div className="flex items-center gap-2 mt-4 pt-4 border-t border-neutral-700/50">
           <button
             onClick={() => onDownload(file)}
-            disabled={isDownloading}
+            disabled={isThisFileDownloading}
             className="flex-1 px-4 py-2 bg-green-600/80 hover:bg-green-600 disabled:bg-neutral-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
           >
-            {isDownloading ? (
+            {isThisFileDownloading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Downloading...

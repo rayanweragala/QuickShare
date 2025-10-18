@@ -58,7 +58,10 @@ const FileUploadModal = ({ isOpen, onClose, roomCode, isCreatorOnly, isCreator }
       alert("File size exceeds maximum allowed (5GB)");
       return;
     }
+    uploadMutation.reset();
+    setUploadProgress(0);
     setSelectedFile(file);
+
   };
 
   const handleUpload = async () => {
@@ -73,7 +76,6 @@ const FileUploadModal = ({ isOpen, onClose, roomCode, isCreatorOnly, isCreator }
       setTimeout(() => {
         setSelectedFile(null);
         setUploadProgress(0);
-        onClose();
       }, 1500);
     } catch (error) {
       logger.error("Upload failed:", error);
