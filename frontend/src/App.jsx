@@ -6,6 +6,7 @@ import { RoomSuccessModal } from "../src/components/rooms/RoomSuccessModal";
 import { PublicRoomsList } from "./components/rooms/PublicRoomsList";
 import RoomModal from "./components/rooms/RoomModal";
 import { ErrorMessage } from "./components/common";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Users,
   Plus,
@@ -19,12 +20,14 @@ import {
   Eye,
   Send,
   Layers,
+  RefreshCw,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { roomAPI } from "../src/api/hooks/useRooms";
 import { logger } from "./utils/logger";
 
 function App() {
+  const queryClient = useQueryClient();
   const [view, setView] = useState("home");
   const [stats, setStats] = useState({
     totalFiles: 0,
@@ -37,25 +40,43 @@ function App() {
   const [createdRoom, setCreatedRoom] = useState(null);
   const [showRoomModal, setShowRoomModal] = useState(false);
   const [selectedRoomCode, setSelectedRoomCode] = useState(null);
+  const [sortBy, setSortBy] = useState("recent");
 
-  const { data: roomsData, isLoading: roomsLoading, isError, error, refetch } = useQuery({
-    queryKey: ["featuredRooms"],
-    queryFn: () => roomAPI.getPublicRooms(0, 6),
-    refetchInterval: 100000,
+  const {
+    data: roomsData,
+    isLoading: roomsLoading,
+    isError,
+    error,
+  } = useQuery({
+    queryKey: ["featuredRooms", sortBy],
+    queryFn: () =>
+      roomAPI.searchRoomsAdvanced({
+        sortBy: sortBy,
+        page: 0,
+        size: 6,
+      }),
+    staleTime: 5 * 60 * 1000,
+    cacheTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: "always",
+    refetchInterval: false,
   });
-
   const featuredRooms = roomsData?.content || [];
 
   const handleRoomCreated = (room) => {
     setCreatedRoom(room);
     setShowSuccessModal(true);
-    refetch();
+    queryClient.invalidateQueries(["featuredRooms"]);
   };
 
   const handleJoinRoom = (roomCode) => {
     logger.debug("Joining room:", roomCode);
     setSelectedRoomCode(roomCode);
     setShowRoomModal(true);
+  };
+
+  const handleManualRefresh = () => {
+    queryClient.invalidateQueries(["featuredRooms"]);
   };
 
   const formatTimeRemaining = (expiresAt) => {
@@ -270,6 +291,26 @@ function App() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="hidden sm:block px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-300 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50 hover:border-neutral-600 transition-all"
+              >
+                <option value="recent">Most Recent</option>
+                <option value="popular">Most Popular</option>
+                <option value="mostFiles">Most Files</option>
+                <option value="leastCrowded">Least Crowded</option>
+              </select>
+              <button
+                onClick={handleManualRefresh}
+                disabled={roomsLoading}
+                className="p-2 hover:bg-neutral-700 rounded-lg text-neutral-400 hover:text-white transition-all"
+                title="Refresh rooms"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 ${roomsLoading ? "animate-spin" : ""}`}
+                />
+              </button>
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="hidden sm:flex items-center gap-2 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg transition-all"
@@ -301,7 +342,7 @@ function App() {
                 className="mx-auto max-w-md mb-4"
               />
               <button
-                onClick={refetch}
+                onClick={handleManualRefresh}
                 className="mt-4 px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-semibold rounded-lg transition-all hover:scale-105 shadow-lg shadow-green-500/20"
               >
                 Retry
@@ -542,8 +583,8 @@ function App() {
       <RoomModal
         isOpen={showRoomModal}
         onClose={() => {
-          setShowRoomModal(false)
-          setSelectedRoomCode(null)
+          setShowRoomModal(false);
+          setSelectedRoomCode(null);
         }}
         roomCode={selectedRoomCode}
       />

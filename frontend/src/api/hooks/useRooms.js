@@ -7,7 +7,7 @@ const roomAPI = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-User-UUID': localStorage.getItem('userUuid') || 'anonymous',
+        'X-User-ID': localStorage.getItem('userUuid') || 'anonymous',
       },
       body: JSON.stringify(data),
     });
@@ -46,7 +46,7 @@ const roomAPI = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-User-UUID': localStorage.getItem('userUuid') || 'anonymous',
+        'X-User-ID': localStorage.getItem('userUuid') || 'anonymous',
       },
       body: JSON.stringify({ socketId, userId }),
     });
