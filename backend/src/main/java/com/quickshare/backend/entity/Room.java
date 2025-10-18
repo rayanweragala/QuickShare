@@ -52,6 +52,9 @@ public class Room {
     @Column(name = "CREATOR_IP", nullable = false)
     private String creatorIp;
 
+    @Column(name = "CREATOR_USER_ID")
+    private String creatorUserId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "ROOM_VISIBILITY", nullable = false)
     private RoomVisibility roomVisibility;

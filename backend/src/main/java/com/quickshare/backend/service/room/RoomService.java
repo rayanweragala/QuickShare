@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -58,6 +59,7 @@ public class RoomService {
                 .roomIcon(animalIdentity.getIcon())
                 .creatorAnimalName(animalIdentity.getName())
                 .creatorSocketId("")
+                .creatorUserId(request.getUserId())
                 .creatorIp(ipAddress)
                 .roomVisibility(visibility)
                 .status(RoomStatus.ACTIVE)
@@ -71,11 +73,27 @@ public class RoomService {
                 .build();
 
         room = roomRepository.save(room);
+
+        RoomParticipant creatorParticipant = RoomParticipant.builder()
+                .room(room)
+                .socketId("creator-initial")
+                .userId(request.getUserId())
+                .animalName(animalIdentity.getName())
+                .animalIcon(animalIdentity.getIcon())
+                .avatarColor(animalIdentity.getColor())
+                .ipAddress(ipAddress)
+                .isCreator(true)
+                .isOnline(true)
+                .build();
+
+        room.addParticipant(creatorParticipant);
+        roomRepository.save(room);
+
         return mapToRoomResponse(room);
     }
 
     @Transactional
-    public RoomDetailsResponse joinRoom(String roomCode, String userUuid, String socketId, String ipAddress) {
+    public RoomDetailsResponse joinRoom(String roomCode, String userUuid, String socketId, String ipAddress, String userId) {
         Room room = roomRepository.findByRoomCode(roomCode).orElseThrow(() -> new RuntimeException("room not found"));
 
         if(room.isExpired()) {
@@ -88,24 +106,45 @@ public class RoomService {
             throw new RuntimeException("room is full");
         }
 
-        Set<String> existingNames = room.getParticipants().stream().map(RoomParticipant::getAnimalName).collect(Collectors.toSet());
-        var animalIdentity =  AnimalNameGenerator.generateUniqueAnimal(existingNames);
+        Optional<RoomParticipant> existingParticipant = room.getParticipants().stream().filter(p->p.getUserId() != null && p.getUserId().equals(userId)).findFirst();
 
-        RoomParticipant roomParticipant = RoomParticipant.builder()
-                .room(room)
-                .socketId(socketId)
-                .animalName(animalIdentity.getName())
-                .animalIcon(animalIdentity.getIcon())
-                .avatarColor(animalIdentity.getColor())
-                .ipAddress(ipAddress)
-                .isCreator(false)
-                .isOnline(true)
-                .build();
+        RoomParticipant roomParticipant;
 
-        room.addParticipant(roomParticipant);
-        room.setTotalVisitors(room.getTotalVisitors() + 1);
+        if(existingParticipant.isPresent()){
+            roomParticipant = existingParticipant.get();
+            roomParticipant.setSocketId(socketId);
+            roomParticipant.setIsOnline(true);
+            roomParticipant.setLastSeenAt(LocalDateTime.now());
+            roomParticipant.setIpAddress(ipAddress);
+
+            LoggerUtil.audit("User rejoined room=" + userId + " with new session=" + socketId);
+        } else {
+            Set<String> existingNames = room.getParticipants().stream()
+                    .map(RoomParticipant::getAnimalName)
+                    .collect(Collectors.toSet());
+
+            var animalIdentity = AnimalNameGenerator.generateUniqueAnimal(existingNames);
+            boolean isCreator = userId.equals(room.getCreatorUserId());
+
+            roomParticipant = RoomParticipant.builder()
+                    .room(room)
+                    .socketId(socketId)
+                    .userId(userId)
+                    .animalName(animalIdentity.getName())
+                    .animalIcon(animalIdentity.getIcon())
+                    .avatarColor(animalIdentity.getColor())
+                    .ipAddress(ipAddress)
+                    .isCreator(isCreator)
+                    .isOnline(true)
+                    .build();
+
+            room.addParticipant(roomParticipant);
+            room.setTotalVisitors(room.getTotalVisitors() + 1);
+
+            LoggerUtil.audit("New user joined room=" + userId + " with session=" + socketId + ", isCreator=" + isCreator);
+        }
+
         room.updateActivity();
-
         roomRepository.save(room);
 
         return getRoomDetails(room.getId());

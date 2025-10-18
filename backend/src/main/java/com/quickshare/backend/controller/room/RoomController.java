@@ -66,10 +66,11 @@ public class RoomController {
         }
 
         String socketId = request.getSocketId();
+        String userId = request.getUserId();
 
         LoggerUtil.audit("room join request for user=" + userUuid + ",ipAddress=" + ipAddress + ",socketId=" + socketId);
 
-        RoomDetailsResponse response = roomService.joinRoom(roomCode, userUuid, socketId, ipAddress);
+        RoomDetailsResponse response = roomService.joinRoom(roomCode, userUuid, socketId, ipAddress, userId);
         return ResponseEntity.ok(response);
     }
 

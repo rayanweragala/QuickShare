@@ -14,6 +14,9 @@ import lombok.NoArgsConstructor;
 @Schema(description = "Request payload for joining an existing room")
 public class JoinRoomRequest {
 
+    @NotBlank(message = "User ID is required")
+    @Schema(description = "Unique user id for the participant connection")
+    private String userId;
     @NotBlank(message = "Socket ID is required")
     @Schema(description = "Unique socket identifier for the participant connection",
             example = "socket-789-ghi")
