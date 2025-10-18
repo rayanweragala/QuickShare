@@ -1,9 +1,6 @@
 package com.quickshare.backend.controller.room;
 
-import com.quickshare.backend.dto.room.CreateRoomRequest;
-import com.quickshare.backend.dto.room.JoinRoomRequest;
-import com.quickshare.backend.dto.room.RoomDetailsResponse;
-import com.quickshare.backend.dto.room.RoomResponse;
+import com.quickshare.backend.dto.room.*;
 import com.quickshare.backend.service.room.RoomService;
 import com.quickshare.backend.util.LoggerUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,9 +29,9 @@ public class RoomController {
             @Valid @RequestBody CreateRoomRequest request,
             HttpServletRequest httpRequest) {
 
-        String userUuid = httpRequest.getHeader("X-User-UUID");
-        if (userUuid == null) {
-            userUuid = "anonymous";
+        String userId = httpRequest.getHeader("X-User-ID");
+        if (userId == null) {
+            userId = httpRequest.getHeader("X-User-Session");
         }
 
         String ipAddress = httpRequest.getHeader("X-Forwarded-For");
@@ -42,9 +39,9 @@ public class RoomController {
             ipAddress = httpRequest.getRemoteAddr();
         }
 
-        LoggerUtil.audit("room creation request for user=" + userUuid + ",ipAddress=" + ipAddress);
+        LoggerUtil.audit("room creation request for user=" + userId + ",ipAddress=" + ipAddress);
 
-        RoomResponse response = roomService.createRoom(request, userUuid, ipAddress);
+        RoomResponse response = roomService.createRoom(request, userId, ipAddress);
         return ResponseEntity.ok(response);
     }
 
@@ -55,12 +52,9 @@ public class RoomController {
             @Valid @RequestBody JoinRoomRequest request,
             HttpServletRequest httpRequest) {
 
-        String userUuid = httpRequest.getHeader("X-User-UUID");
-        if (userUuid == null) {
-            userUuid = httpRequest.getHeader("X-User-Session");
-        }
-        if (userUuid == null) {
-            userUuid = "anonymous";
+        String userId = httpRequest.getHeader("X-User-ID");
+        if (userId == null) {
+            userId = httpRequest.getHeader("X-User-Session");
         }
 
         String ipAddress = httpRequest.getHeader("X-Forwarded-For");
@@ -69,9 +63,8 @@ public class RoomController {
         }
 
         String socketId = request.getSocketId();
-        String userId = request.getUserId();
 
-        LoggerUtil.audit("room join request for user=" + userUuid + ",ipAddress=" + ipAddress + ",socketId=" + socketId);
+        LoggerUtil.audit("room join request for user=" + userId + ",ipAddress=" + ipAddress + ",socketId=" + socketId);
 
         RoomDetailsResponse response = roomService.joinRoom(roomCode, socketId, ipAddress, userId);
         return ResponseEntity.ok(response);
@@ -121,8 +114,11 @@ public class RoomController {
     public ResponseEntity<Void> deleteRoom(
             @PathVariable Long roomId,
             HttpServletRequest httpRequest) {
-        String userUuid = (String) httpRequest.getAttribute("userUuid");
-        roomService.deleteRoom(roomId, userUuid);
+        String userId = httpRequest.getHeader("X-User-ID");
+        if (userId == null) {
+            userId = httpRequest.getHeader("X-User-Session");
+        }
+        roomService.deleteRoom(roomId, userId);
         return ResponseEntity.noContent().build();
     }
 
@@ -132,15 +128,13 @@ public class RoomController {
             @PathVariable Long roomId,
             HttpServletRequest httpRequest) {
 
-        String userUuid = httpRequest.getHeader("X-User-UUID");
-        if (userUuid == null) {
-            userUuid = httpRequest.getHeader("X-User-Session");
+        String userId = httpRequest.getHeader("X-User-ID");
+        if (userId == null) {
+            userId = httpRequest.getHeader("X-User-Session");
         }
-        if (userUuid == null) {
-            userUuid = "anonymous";
-        }
+
         String socketId = (String) httpRequest.getAttribute("socketId");
-        roomService.leaveRoom(roomId, userUuid);
+        roomService.leaveRoom(roomId, userId);
         return ResponseEntity.noContent().build();
     }
 
@@ -160,4 +154,18 @@ public class RoomController {
         return roomService.searchRoomsAdvanced(query,minParticipants,maxParticipants,minFiles,hasSpace,sortBy,pageable);
     }
 
+    @PatchMapping("/{roomId}")
+    @Operation(summary = "Update room details", description = "Update room name or mark room as user featured")
+    public ResponseEntity<RoomResponse> patchRoomDetails(
+            @PathVariable Long roomId,
+            @Valid @RequestBody RoomUpdateRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        String userId = httpRequest.getHeader("X-User-ID");
+        if (userId == null) {
+            userId = httpRequest.getHeader("X-User-Session");
+        }
+        RoomResponse response = roomService.patchRoomDetails(userId,roomId,request);
+        return ResponseEntity.ok(response);
+    }
 }

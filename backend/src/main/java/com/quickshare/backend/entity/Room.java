@@ -120,15 +120,17 @@ public class Room {
     private Boolean isFeatured = false;
 
     public void addFiles(RoomFile file) {
-        files.add(file);
-        file.setRoom(this);
-        this.currentStorageBytes += file.getFileSize();
+        if (file != null && !files.contains(file)) {
+            files.add(file);
+            file.setRoom(this);
+            this.currentStorageBytes += Math.max(0, file.getFileSize());
+        }
     }
-
     public void removeFile(RoomFile file) {
-        files.remove(file);
-        file.setRoom(null);
-        this.currentStorageBytes -= file.getFileSize();
+        if (file != null && files.remove(file)) {
+            file.setRoom(null);
+            this.currentStorageBytes = Math.max(0, this.currentStorageBytes - file.getFileSize());
+        }
     }
 
     public void addParticipant(RoomParticipant participant) {
