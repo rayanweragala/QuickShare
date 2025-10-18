@@ -7,6 +7,7 @@ import { PublicRoomsList } from "./components/rooms/PublicRoomsList";
 import RoomModal from "./components/rooms/RoomModal";
 import { ErrorMessage } from "./components/common";
 import { useQueryClient } from "@tanstack/react-query";
+import { useFeaturedRoomsSocket } from "./api/hooks/useFeaturedRoomsSocket";
 import {
   Users,
   Plus,
@@ -20,10 +21,12 @@ import {
   Eye,
   Send,
   Layers,
-  RefreshCw,
+  Star,
+  Trash2,
+  Settings,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { roomAPI } from "../src/api/hooks/useRooms";
+import { roomAPI } from "./api/hooks/useRooms";
 import { logger } from "./utils/logger";
 
 function App() {
@@ -42,6 +45,7 @@ function App() {
   const [selectedRoomCode, setSelectedRoomCode] = useState(null);
   const [sortBy, setSortBy] = useState("recent");
 
+  const { featuredRooms, toggleFeatured } = useFeaturedRoomsSocket();
   const {
     data: roomsData,
     isLoading: roomsLoading,
@@ -61,7 +65,7 @@ function App() {
     refetchOnMount: "always",
     refetchInterval: false,
   });
-  const featuredRooms = roomsData?.content || [];
+  const publicRooms = roomsData?.content || [];
 
   const handleRoomCreated = (room) => {
     setCreatedRoom(room);
@@ -277,6 +281,142 @@ function App() {
           </div>
         </section>
 
+        {featuredRooms.length > 0 && (
+          <section className="mb-8 bg-gradient-to-r from-yellow-900/30 via-amber-900/30 to-yellow-900/30 backdrop-blur-xl rounded-2xl border border-yellow-500/30 p-6 sm:p-8 animate-fade-in">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-yellow-500/20 rounded-xl flex items-center justify-center">
+                  <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                    My Featured Rooms
+                  </h2>
+                  <p className="text-neutral-300 text-sm">
+                    Your personalized room collection • {featuredRooms.length}{" "}
+                    {featuredRooms.length === 1 ? "room" : "rooms"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 rounded-lg transition-all"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="text-sm font-medium">New Room</span>
+              </button>
+            </div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {featuredRooms.map((room) => (
+                <div
+                  key={room.id}
+                  className="group relative overflow-hidden bg-gradient-to-br from-neutral-800/90 to-neutral-900/90 border border-yellow-500/40 hover:border-yellow-400/60 rounded-xl p-5 transition-all duration-300 hover:shadow-xl hover:shadow-yellow-500/20"
+                >
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/10 rounded-full blur-2xl group-hover:bg-yellow-500/15 transition-all" />
+
+                  <div className="absolute top-3 right-3 w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center border border-yellow-500/40">
+                    <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                  </div>
+
+                  <div className="relative">
+                    <div
+                      className="cursor-pointer"
+                      onClick={() => handleJoinRoom(room.roomCode)}
+                    >
+                      <div className="flex items-start justify-between mb-3 pr-8">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-2xl">{room.roomIcon}</span>
+                            <h3 className="font-bold text-white text-lg group-hover:text-yellow-400 transition-colors line-clamp-1">
+                              {room.roomName || "Untitled Room"}
+                            </h3>
+                          </div>
+                          <p className="text-xs text-neutral-400">
+                            by {room.creatorAnimalName}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mb-3">
+                        <div className="px-2 py-1 bg-yellow-500/20 text-yellow-300 text-xs font-mono font-bold rounded border border-yellow-500/30 inline-block">
+                          {room.roomCode}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-400 mb-3">
+                        <div className="flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5 text-yellow-400" />
+                          <span className="text-white font-medium">
+                            {room.participantCount}
+                          </span>
+                          <span>/{room.maxParticipants || "∞"}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Upload className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-white font-medium">
+                            {room.fileCount}
+                          </span>
+                          <span>files</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Eye className="w-3.5 h-3.5 text-neutral-400" />
+                          <span className="text-white font-medium">
+                            {room.totalVisitors}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-3 border-t border-neutral-700/50">
+                        <div className="flex items-center gap-1 text-xs text-neutral-500">
+                          <Clock className="w-3 h-3" />
+                          <span>{formatTimeRemaining(room.expiresAt)}</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-xs font-medium text-yellow-400 group-hover:text-yellow-300">
+                          <span>Open</span>
+                          <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 mt-3 pt-3 border-t border-neutral-700/30">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFeatured(room.id, false);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-neutral-700/50 hover:bg-neutral-700 text-neutral-300 text-xs rounded-lg transition-all"
+                        title="Remove from featured"
+                      >
+                        <Star className="w-3 h-3" />
+                        <span>Unfeature</span>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Handle room settings/management
+                        }}
+                        className="flex items-center justify-center gap-1 px-3 py-2 bg-neutral-700/50 hover:bg-neutral-700 text-neutral-300 text-xs rounded-lg transition-all"
+                        title="Room settings"
+                      >
+                        <Settings className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="sm:hidden w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 rounded-lg transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="font-medium">Create New Room</span>
+            </button>
+          </section>
+        )}
+
         <section className="mb-8 bg-gradient-to-r from-neutral-800/60 via-neutral-900/60 to-neutral-800/60 backdrop-blur-xl rounded-2xl border border-neutral-700/50 p-6 sm:p-8 animate-fade-in">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -284,9 +424,9 @@ function App() {
                 <TrendingUp className="w-6 h-6 text-green-400" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white">Active Rooms</h2>
+                <h2 className="text-2xl font-bold text-white">Public Rooms</h2>
                 <p className="text-neutral-300 text-sm">
-                  Or join live sharing rooms
+                  Discover and join community rooms
                 </p>
               </div>
             </div>
@@ -327,7 +467,7 @@ function App() {
               <ErrorMessage
                 message={
                   error?.message ||
-                  "Failed to load active rooms. Please try again."
+                  "Failed to load public rooms. Please try again."
                 }
                 className="mx-auto max-w-md mb-4"
               />
@@ -338,11 +478,11 @@ function App() {
                 Retry
               </button>
             </div>
-          ) : featuredRooms.length === 0 ? (
+          ) : publicRooms.length === 0 ? (
             <div className="text-center py-12 text-neutral-400">
               <Globe className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p className="mb-4">
-                No active rooms yet. Be the first to create one!
+                No public rooms yet. Be the first to create one!
               </p>
               <button
                 onClick={() => setShowCreateModal(true)}
@@ -355,7 +495,7 @@ function App() {
           ) : (
             <>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {featuredRooms.slice(0, 6).map((room) => (
+                {publicRooms.slice(0, 6).map((room) => (
                   <div
                     key={room.id}
                     onClick={() => handleJoinRoom(room.roomCode)}
@@ -531,23 +671,17 @@ function App() {
           </div>
         </section>
 
-        <footer className="text-center space-y-3">
-          <a
-            href="https://github.com/rayanweragala/QuickShare"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral-800 hover:bg-neutral-700 transition-all duration-200 mb-2"
-          >
-            <svg
-              className="w-5 h-5 text-neutral-400 hover:text-white transition-colors"
-              fill="currentColor"
-              viewBox="0 0 24 24"
+        <footer className="text-center py-4">
+          <p className="text-neutral-400 text-sm">
+            Made with <span className="text-red-500">❤️</span> by{" "}
+            <a
+              href="https://github.com/rayanweragala"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-semibold text-green-400 hover:underline"
             >
-              <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
-            </svg>
-          </a>
-          <p className="text-sm text-neutral-500">
-            Built with WebRTC • Open source • No tracking
+              Rayan
+            </a>
           </p>
         </footer>
       </main>

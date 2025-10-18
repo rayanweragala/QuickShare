@@ -115,6 +115,10 @@ public class Room {
     @Builder.Default
     private SubscriptionTier subscriptionTier = SubscriptionTier.FREE;
 
+    @Column(name = "IS_FEATURED", nullable = false)
+    @Builder.Default
+    private Boolean isFeatured = false;
+
     public void addFiles(RoomFile file) {
         files.add(file);
         file.setRoom(this);

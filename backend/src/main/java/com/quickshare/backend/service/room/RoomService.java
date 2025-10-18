@@ -79,6 +79,7 @@ public class RoomService {
                 .expiresAt(LocalDateTime.now().plusHours(expirationHours))
                 .lastActivityAt(LocalDateTime.now())
                 .totalVisitors(1L)
+                .isFeatured(request.getIsFeatured())
                 .build();
 
         room = roomRepository.save(room);
@@ -288,5 +289,23 @@ public class RoomService {
         );
 
         return projections.map(RoomMapper::mapToRoomResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public List<RoomResponse> getFeaturedRoomsForUser(String userId) {
+        List<Room> rooms = roomRepository.findFeaturedRoomsByUserId(userId, RoomStatus.ACTIVE);
+        return rooms.stream()
+                .map(RoomMapper::mapToRoomResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void toggleRoomFeatured(Long roomId, String userId, Boolean isFeatured) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new RuntimeException("Room not found"));
+
+        room.setIsFeatured(isFeatured);
+        roomRepository.save(room);
+        cacheService.evictRoomCaches(roomId);
     }
 }
