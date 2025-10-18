@@ -3,10 +3,12 @@ package com.quickshare.backend.service.room;
 import com.quickshare.backend.component.RateLimitService;
 import com.quickshare.backend.dto.room.FileInfo;
 import com.quickshare.backend.dto.room.FileUploadResponse;
+import com.quickshare.backend.dto.room.RoomDetailsResponse;
 import com.quickshare.backend.dto.room.UploadFileRequest;
 import com.quickshare.backend.entity.Room;
 import com.quickshare.backend.entity.RoomFile;
 import com.quickshare.backend.entity.RoomParticipant;
+import com.quickshare.backend.handler.WebSocketHandler;
 import com.quickshare.backend.model.enums.RoomVisibility;
 import com.quickshare.backend.model.enums.SubscriptionTier;
 import com.quickshare.backend.repository.RoomFileRepository;
@@ -33,6 +35,8 @@ public class FileUploadService {
     private final UsageLimitService usageLimitService;
     private final RoomParticipantRepository participantRepository;
     private final CacheService cacheService;
+    private final WebSocketHandler webSocketHandler;
+    private final RoomCacheService roomCacheService;
 
     /**
      * PHASE 1: initiate file upload
@@ -161,6 +165,15 @@ public class FileUploadService {
 
         LoggerUtil.audit("file upload completed: " + fileId + " (" + formatBytes(actualSize) + ")");
 
+        try {
+            RoomDetailsResponse updatedRoom = roomCacheService.getRoomDetails(room.getId());
+            webSocketHandler.broadcastRoomUpdate(roomCode, updatedRoom);
+            LoggerUtil.dev("Broadcasted file upload completion to room=" + roomCode);
+        } catch (Exception e) {
+            LoggerUtil.error(FileUploadService.class,
+                    "Failed to broadcast file upload completion=" + e.getMessage(), e);
+        }
+
         return mapToFileInfo(file);
     }
 
@@ -231,8 +244,11 @@ public class FileUploadService {
 
         try {
             cloudflareR2Service.deleteFile(file.getCloudFlareKey());
+            LoggerUtil.audit("Successfully deleted file from R2: " + fileId);
         } catch (Exception e) {
-            LoggerUtil.warn(FileUploadService.class, "failed to delete file from R2: " + e.getMessage());
+            LoggerUtil.error(FileUploadService.class,
+                    "Failed to delete file from R2=" + file.getCloudFlareKey() + "," + e.getMessage(),e);
+            throw new RuntimeException("Failed to delete file from storage: " + e.getMessage(), e);
         }
 
         room.removeFile(file);
@@ -245,7 +261,16 @@ public class FileUploadService {
             cacheService.evictPublicRoomsCache();
         }
 
-        LoggerUtil.audit("file deleted: " + fileId);
+        LoggerUtil.audit("File deleted successfully=" + fileId);
+
+        try {
+            RoomDetailsResponse updatedRoom = roomCacheService.getRoomDetails(room.getId());
+            webSocketHandler.broadcastRoomUpdate(roomCode, updatedRoom);
+            LoggerUtil.dev("Broadcasted file deletion to room=" + roomCode);
+        } catch (Exception e) {
+            LoggerUtil.error(FileUploadService.class,
+                    "Failed to broadcast file deletion=" + e.getMessage(), e);
+        }
     }
 
     /**

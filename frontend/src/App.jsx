@@ -302,16 +302,6 @@ function App() {
                 <option value="leastCrowded">Least Crowded</option>
               </select>
               <button
-                onClick={handleManualRefresh}
-                disabled={roomsLoading}
-                className="p-2 hover:bg-neutral-700 rounded-lg text-neutral-400 hover:text-white transition-all"
-                title="Refresh rooms"
-              >
-                <RefreshCw
-                  className={`w-4 h-4 ${roomsLoading ? "animate-spin" : ""}`}
-                />
-              </button>
-              <button
                 onClick={() => setShowCreateModal(true)}
                 className="hidden sm:flex items-center gap-2 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg transition-all"
               >

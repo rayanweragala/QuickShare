@@ -28,6 +28,9 @@ public class FileInfo {
     @Schema(description = "Animal name of the user who uploaded the file")
     private String uploaderAnimalName;
 
+    @Schema(description = "Uploader user ID")
+    private String uploaderUserId;
+
     @Schema(description = "Upload timestamp in ISO 8601 format")
     private String uploadedAt;
 
