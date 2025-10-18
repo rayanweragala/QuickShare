@@ -24,10 +24,9 @@ spring:
     name: QuickShare-Backend
 
   datasource:
-   url: ${DATABASE_URL}
-   username: ${DATABASE_USER}
-   password: ${DATABASE_PASSWORD}
-
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
     hikari:
       maximum-pool-size: 5
       minimum-idle: 1
