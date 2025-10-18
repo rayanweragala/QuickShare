@@ -4,6 +4,20 @@
 A secure, peer-to-peer file sharing web application that enables instant file transfers between devices without uploading files to any server.
 
 ## Release Notes
+### v1.2.0 – 2025-10-18
+- Feature Launch: Room-Based Persistent Sharing.
+- Introduced the ability to create public or private, long-running rooms for file exchange.
+- Implemented automatic, unique animal naming (e.g., "Daring Monkey's Room") and icons for new rooms and participants.
+- Added real-time file management (upload, list, download, delete) within rooms.
+- Introduced the ability to mark rooms as "Featured" for easy access by all users.
+
+**Stability Fixes:**
+- Resolved the critical LazyInitializationException error in scheduled room cleanup by applying @Transactional.
+- Ensured data integrity by filtering the API response to only show files marked as isAvailable = true.
+- UI/UX Improvements:
+- Enhanced the FileCard component with chat-style visuals (uploader avatar, name tooltip, left/right alignment).
+- Fixed file name truncation and responsiveness issues in the file list UI.
+
 ### v1.1.0 – 2025-10-13
 - Added **multi-recipient broadcast session support**
 - Completed frontend/backend broadcast sharing fixes
@@ -21,6 +35,12 @@ QuickShare allows users to share files directly between browsers using WebRTC te
 
 ## Key Features
 
+- **Room-Based Sharing (NEW)**: Create dedicated, long-running spaces for file sharing with persistent file lists.
+    - **Auto-Generated Identity**: New rooms and participants receive unique, auto-generated animal names (e.g., "Daring Monkey's Room") and icons if no name is provided.
+    - **Room Visibility**: Support for Public Rooms (discoverable on the homepage) and Private Rooms (joinable only via room code).
+    - **File Management**: Participants can upload, view, download, and delete shared files within the room.
+    - **Featured Rooms**: Any participant can mark a room as 'Featured' for quick access on the main interface.
+
 - **Direct Browser-to-Browser Transfer**: Files never pass through a server during transfer
 - **End-to-End Encryption**: Files are AES-encrypted in the browser before transmission
 - **Session-Based Sharing**: Simple session ID or QR code for connecting devices
@@ -31,6 +51,7 @@ QuickShare allows users to share files directly between browsers using WebRTC te
 - **Progressive Web App**: Installable with offline support via service workers
 - **Multi-Recipient Broadcast**: Share files or sessions with multiple devices at once
 
+**Future Plans**: File scanning for malware and viruses is a high-priority feature slated for the next major release.
 ## Architecture
 
 QuickShare uses a hybrid architecture combining client-side WebRTC for file transfers with a lightweight Spring Boot backend for signaling:
@@ -50,7 +71,10 @@ QuickShare uses a hybrid architecture combining client-side WebRTC for file tran
 **Backend**
 - Spring Boot (Java 17) REST APIs and WebSocket server
 - Native Spring WebSocket implementation (refactored from Netty-SocketIO)
+- PostgreSQL for persistent room and file metadata storage
 - Redis for active session metadata storage
+- Integration with Cloudflare APIs for file uploads and access links
+- Cloudflare R2 (S3-compatible) for secure and scalable file storage
 - Automatic session cleanup and expiration
 
 **Deployment**
@@ -75,6 +99,15 @@ The application uses WebSocket for exchanging WebRTC signaling messages:
 - **File Encryption**: Client-side AES encryption before transmission
 - **Session Management**: Time-based expiration and automatic cleanup
 
+### Room Flow (NEW)
+
+1. User joins or creates a Room → Backend generates/retrieves persistent Room ID and unique user ID.
+2. User is assigned a fun animal name/icon (e.g., "Trusty Koala").
+3. Room details (files, participants) are fetched via REST API and updated via WebSocket.
+4. When a user uploads a file, it's transferred via WebRTC to the recipient(s) **or** temporarily stored in Cloudflare R2.
+5. File metadata is saved to the Room object (Redis/Database).
+6. Participants can download shared files directly (P2P when possible, Cloudflare fallback).
+
 ### Session Flow
 
 1. Sender creates a session → Backend generates unique session ID
@@ -96,16 +129,22 @@ The project was refactored to use Spring Boot's native WebSocket implementation 
 ## Technology Stack
 
 | Layer | Technology | Purpose |
-|-------|------------|---------|
+|-------|-------------|----------|
 | Frontend | React (Vite) | UI framework and build tool |
-| Frontend | Tailwind CSS | Utility-first styling |
-| Frontend | WebRTC APIs | Peer-to-peer data channels |
-| Frontend | WebSocket | Real-time signaling |
+| Frontend | Tailwind CSS | Utility-first responsive styling |
+| Frontend | WebRTC APIs | Peer-to-peer file transfer channels |
+| Frontend | WebSocket Client | Real-time room and file event updates |
+| Frontend | AES Encryption | End-to-end encryption in browser |
+| Frontend | IndexedDB | Local session and history storage |
 | Backend | Spring Boot (Java 17) | REST APIs and WebSocket server |
-| Backend | Spring WebSocket | Native WebSocket implementation |
-| Database | Redis | Session metadata storage |
-| Deployment | Docker Compose | Orchestration and containerization |
-| Hosting | Render | Cloud hosting platform |
+| Backend | Spring WebSocket | Native WebSocket signaling implementation |
+| Backend | Redis | Active session metadata and caching |
+| Backend | PostgreSQL | Persistent storage for room and file metadata |
+| Backend | Cloudflare API | Secure file upload and access management |
+| Storage | Cloudflare R2 (S3-Compatible) | Scalable cloud storage for shared files |
+| Deployment | Docker Compose | Containerization and orchestration |
+| Hosting | Render | Application hosting and deployment |
+
 
 ## Performance
 
