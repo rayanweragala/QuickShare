@@ -2,11 +2,14 @@ package com.quickshare.backend.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quickshare.backend.dto.SignalingMessage;
+import com.quickshare.backend.dto.room.RoomResponse;
 import com.quickshare.backend.model.Session;
 import com.quickshare.backend.model.enums.SessionStatus;
 import com.quickshare.backend.service.SessionService;
+import com.quickshare.backend.service.room.RoomService;
 import com.quickshare.backend.util.LoggerUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -14,10 +17,7 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -25,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * manages WebSocket connections and routes WebRTC signaling messages
  */
 @Component
-@RequiredArgsConstructor
 public class WebSocketHandler extends TextWebSocketHandler {
 
     private final SessionService sessionService;
@@ -38,6 +37,18 @@ public class WebSocketHandler extends TextWebSocketHandler {
     private final Map<String,Set<String >> roomSubscriptions = new ConcurrentHashMap<>();
     private final Map<String,String > socketToRoom = new ConcurrentHashMap<>();
 
+    private final Map<String, Set<String>> userFeaturedRoomsSubscriptions = new ConcurrentHashMap<>();
+    private final Map<String, String> socketToUserId = new ConcurrentHashMap<>();
+    private final RoomService roomService;
+
+    public WebSocketHandler(
+            SessionService sessionService,
+            ObjectMapper objectMapper,
+            @Lazy RoomService roomService) {
+        this.sessionService = sessionService;
+        this.objectMapper = objectMapper;
+        this.roomService = roomService;
+    }
     private Object getSessionLock(String sessionId) {
         return sessionLocks.computeIfAbsent(sessionId, k -> new Object());
     }
@@ -47,6 +58,43 @@ public class WebSocketHandler extends TextWebSocketHandler {
         String sessionId = extractParam(query, "sessionId");
         String role = extractParam(query, "role");
         String roomCode = extractParam(query, "roomCode");
+        String userId = extractParam(query, "userId");
+        String type = extractParam(query, "type");
+
+        if (userId != null && "featured".equals(type)) {
+            socketIdToSession.put(session.getId(), session);
+            userFeaturedRoomsSubscriptions
+                    .computeIfAbsent(userId, k -> ConcurrentHashMap.newKeySet())
+                    .add(session.getId());
+            socketToUserId.put(session.getId(), userId);
+
+            Map<String, String> metadata = new HashMap<>();
+            metadata.put("type", "featured");
+            metadata.put("userId", userId);
+            sessionMetadata.put(session, metadata);
+
+            sendFeaturedRoomsToUser(session, userId);
+
+            LoggerUtil.audit("Featured rooms WebSocket connected for userId=" + userId);
+            return;
+        }
+
+        if (roomCode != null) {
+            Map<String, String> metaData = new HashMap<>();
+            metaData.put("type", "room");
+            metaData.put("roomCode", roomCode);
+            sessionMetadata.put(session, metaData);
+
+            socketIdToSession.put(session.getId(), session);
+
+            roomSubscriptions.computeIfAbsent(roomCode, k -> ConcurrentHashMap.newKeySet())
+                    .add(session.getId());
+            socketToRoom.put(session.getId(), roomCode);
+
+            LoggerUtil.audit("WebSocket connected for room subscriptions, roomCode=" + roomCode +
+                    ",socketId=" + session.getId());
+            return;
+        }
 
         if (sessionId != null && role != null) {
             Map<String, String> metadata = new HashMap<>();
@@ -62,27 +110,17 @@ public class WebSocketHandler extends TextWebSocketHandler {
                 sessionService.updateSenderSocketId(sessionId.toUpperCase(), session.getId());
             } else if ("receiver".equalsIgnoreCase(role)) {
                 if (dbSession != null && dbSession.isMultiRecipient()) {
-                    sessionService.updateReceiverSocketIdInBroadcast(sessionId.toUpperCase(), null, session.getId());
+                    sessionService.updateReceiverSocketIdInBroadcast(
+                            sessionId.toUpperCase(), null, session.getId());
                 } else {
                     sessionService.updateReceiverSocketId(sessionId.toUpperCase(), session.getId());
                 }
             }
 
-            LoggerUtil.audit("WebSocket connected for sessionId=" + sessionId + ",role=" + role + ",socketId=" + session.getId());
-        } else if (roomCode != null) {
-            Map<String , String> metaData = new HashMap<>();
-            metaData.put("type","room");
-            metaData.put("roomCode",roomCode);
-
-            socketIdToSession.put(session.getId(),session);
-
-            roomSubscriptions.computeIfAbsent(roomCode, k-> ConcurrentHashMap.newKeySet()).add(session.getId());
-            socketToRoom.put(session.getId(),roomCode);
-
-            LoggerUtil.audit("Websocket connected for room subscriptions, roomCode=" + roomCode + ",socketId=" + session.getId());
+            LoggerUtil.audit("WebSocket connected for sessionId=" + sessionId +
+                    ",role=" + role + ",socketId=" + session.getId());
         }
     }
-
 
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
@@ -92,8 +130,15 @@ public class WebSocketHandler extends TextWebSocketHandler {
                 return;
             }
 
-            if("room".equals(metadata.get("type"))){
-                handleRoomMessage(session,message);
+            String metadataType = metadata.get("type");
+
+            if ("room".equals(metadataType)) {
+                handleRoomMessage(session, message);
+                return;
+            }
+
+            if ("featured".equals(metadataType)) {
+                handleFeaturedRoomsMessage(session, message);
                 return;
             }
 
@@ -128,10 +173,10 @@ public class WebSocketHandler extends TextWebSocketHandler {
                     handleBroadcastStatus(sessionId, signalingMsg);
                     break;
                 default:
-                    LoggerUtil.warn(WebSocketHandler.class, "Unknown message type: " + type);
+                    LoggerUtil.warn(WebSocketHandler.class, "Unknown message type=" + type);
             }
         } catch (Exception e) {
-            LoggerUtil.error(WebSocketHandler.class, "Error handling WebSocket message: " + e.getMessage(), e);
+            LoggerUtil.error(WebSocketHandler.class, "Error handling WebSocket message=" + e.getMessage(), e);
         }
     }
 
@@ -140,55 +185,138 @@ public class WebSocketHandler extends TextWebSocketHandler {
             Map<String, Object> msg = objectMapper.readValue(message.getPayload(), Map.class);
             String type = (String) msg.get("type");
 
-            if("ping".equals(type)) {
-                Map<String , Object> pong = new HashMap<>();
-                pong.put("type","pong");
-                pong.put("timestamp",System.currentTimeMillis());
+            if ("ping".equals(type)) {
+                Map<String, Object> pong = new HashMap<>();
+                pong.put("type", "pong");
+                pong.put("timestamp", System.currentTimeMillis());
                 session.sendMessage(new TextMessage(objectMapper.writeValueAsString(pong)));
             }
-        }catch (Exception e){
-            LoggerUtil.error(WebSocketHandler.class,"Error handling room message=" + e.getMessage(),e);
+        } catch (Exception e) {
+            LoggerUtil.error(WebSocketHandler.class,
+                    "Error handling room message=" + e.getMessage(), e);
+        }
+    }
+
+    private void handleFeaturedRoomsMessage(WebSocketSession session, TextMessage message) {
+        try {
+            Map<String, Object> msg = objectMapper.readValue(message.getPayload(), Map.class);
+            String type = (String) msg.get("type");
+            String userId = socketToUserId.get(session.getId());
+
+            if (userId == null) {
+                userId = (String) msg.get("userId");
+                if (userId != null) {
+                    socketToUserId.put(session.getId(), userId);
+                } else {
+                    LoggerUtil.error(WebSocketHandler.class, "UserId not found for session", null);
+                    return;
+                }
+            }
+
+            LoggerUtil.audit("Received featured rooms message type=" + type + " for userId=" + userId);
+
+
+            switch (type) {
+                case "request-featured-rooms":
+                    sendFeaturedRoomsToUser(session, userId);
+                    break;
+                case "toggle-featured":
+                    Long roomId = ((Number) msg.get("roomId")).longValue();
+                    Boolean isFeatured = (Boolean) msg.get("isFeatured");
+                    roomService.toggleRoomFeatured(roomId, userId, isFeatured);
+                    sendFeaturedRoomsToUser(session, userId);
+                    break;
+                case "ping":
+                    Map<String, Object> pong = new HashMap<>();
+                    pong.put("type", "pong");
+                    pong.put("timestamp", System.currentTimeMillis());
+                    session.sendMessage(new TextMessage(objectMapper.writeValueAsString(pong)));
+                    break;
+                default:
+                    LoggerUtil.dev("Unknown featured rooms message type=" + type);
+            }
+        } catch (Exception e) {
+            LoggerUtil.error(WebSocketHandler.class,
+                    "Error handling featured rooms message=" + e.getMessage(), e);
+        }
+    }
+
+    private void sendFeaturedRoomsToUser(WebSocketSession session, String userId) {
+        try {
+            List<RoomResponse> rooms = roomService.getFeaturedRoomsForUser(userId);
+
+            Map<String, Object> message = new HashMap<>();
+            message.put("type", "featured-rooms-update");
+            message.put("data", rooms);
+            message.put("timestamp", System.currentTimeMillis());
+
+            session.sendMessage(new TextMessage(objectMapper.writeValueAsString(message)));
+
+            LoggerUtil.dev("Sent " + rooms.size() + " featured rooms to user=" + userId);
+        } catch (Exception e) {
+            LoggerUtil.error(WebSocketHandler.class,
+                    "Error sending featured rooms=" + e.getMessage(), e);
         }
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         Map<String, String> metadata = sessionMetadata.remove(session);
-        if (metadata != null) {
+        if (metadata == null) {
+            return;
+        }
 
-            if("room".equals(metadata.get("type"))){
-                String roomCode = metadata.get("roomCode");
-                socketIdToSession.remove(session.getId());
+        String metadataType = metadata.get("type");
 
-                Set<String > subscribers = roomSubscriptions.get(roomCode);
-                if(subscribers != null) {
-                    subscribers.remove(session.getId());
-                    if(subscribers.isEmpty()){
-                        roomSubscriptions.remove(roomCode);
-                    }
-                }
-                socketToRoom.remove(session.getId());
-                LoggerUtil.audit("Websocket disconnected for room, roomCode=" + roomCode);
-                return;
-            }
-
-            String sessionId = metadata.get("sessionId");
-            String role = metadata.get("role");
-
+        if ("featured".equals(metadataType)) {
+            String userId = metadata.get("userId");
             socketIdToSession.remove(session.getId());
 
-            Session dbSession = sessionService.getSession(sessionId);
-
-            if ("receiver".equalsIgnoreCase(role) && dbSession != null && dbSession.isMultiRecipient()) {
-                sessionService.removeReceiver(sessionId, session.getId());
-                notifyReceiverDisconnected(sessionId, session.getId());
-            } else {
-                sessionService.updateSessionStatus(sessionId, SessionStatus.EXPIRED);
-                notifyPeerDisconnected(sessionId);
+            Set<String> userSockets = userFeaturedRoomsSubscriptions.get(userId);
+            if (userSockets != null) {
+                userSockets.remove(session.getId());
+                if (userSockets.isEmpty()) {
+                    userFeaturedRoomsSubscriptions.remove(userId);
+                }
             }
-
-            LoggerUtil.audit("WebSocket disconnected for sessionId=" + sessionId + ",role=" + role);
+            socketToUserId.remove(session.getId());
+            LoggerUtil.audit("Featured rooms WebSocket disconnected for userId=" + userId);
+            return;
         }
+
+        if ("room".equals(metadataType)) {
+            String roomCode = metadata.get("roomCode");
+            socketIdToSession.remove(session.getId());
+
+            Set<String> subscribers = roomSubscriptions.get(roomCode);
+            if (subscribers != null) {
+                subscribers.remove(session.getId());
+                if (subscribers.isEmpty()) {
+                    roomSubscriptions.remove(roomCode);
+                }
+            }
+            socketToRoom.remove(session.getId());
+            LoggerUtil.audit("WebSocket disconnected for room, roomCode=" + roomCode);
+            return;
+        }
+
+        String sessionId = metadata.get("sessionId");
+        String role = metadata.get("role");
+
+        socketIdToSession.remove(session.getId());
+
+        Session dbSession = sessionService.getSession(sessionId);
+
+        if ("receiver".equalsIgnoreCase(role) && dbSession != null &&
+                dbSession.isMultiRecipient()) {
+            sessionService.removeReceiver(sessionId, session.getId());
+            notifyReceiverDisconnected(sessionId, session.getId());
+        } else {
+            sessionService.updateSessionStatus(sessionId, SessionStatus.EXPIRED);
+            notifyPeerDisconnected(sessionId);
+        }
+
+        LoggerUtil.audit("WebSocket disconnected for sessionId=" + sessionId + ",role=" + role);
     }
 
     private void handleOffer(String sessionId, WebSocketSession sender, SignalingMessage message) throws IOException {
@@ -213,7 +341,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
                     }
                     LoggerUtil.audit("offer sent to specific receiver " + targetReceiverId + " for sessionId=" + sessionId);
                 } else {
-                    LoggerUtil.warn(WebSocketHandler.class, "target receiver not found: " + targetReceiverId);
+                    LoggerUtil.warn(WebSocketHandler.class, "target receiver not found=" + targetReceiverId);
                 }
             } else {
                 Set<String> receiverSocketIds = session.getReceiverSocketIds();
@@ -439,7 +567,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
         try {
             broadcastToSession(sessionId, disconnectMsg);
         } catch (IOException e) {
-            LoggerUtil.error(WebSocketHandler.class, "Failed to send disconnect notification: " + e.getMessage(), e);
+            LoggerUtil.error(WebSocketHandler.class, "Failed to send disconnect notification=" + e.getMessage(), e);
         }
     }
 
@@ -466,7 +594,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
                 );
             } catch (IOException e) {
                 LoggerUtil.error(WebSocketHandler.class,
-                        "Failed to send receiver disconnect: " + e.getMessage(), e);
+                        "Failed to send receiver disconnect=" + e.getMessage(), e);
             }
         }
     }
@@ -480,7 +608,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
                     .build();
             session.sendMessage(new TextMessage(objectMapper.writeValueAsString(errorMsg)));
         } catch (IOException e) {
-            LoggerUtil.error(WebSocketHandler.class, "Failed to send error: " + e.getMessage(), e);
+            LoggerUtil.error(WebSocketHandler.class, "Failed to send error=" + e.getMessage(), e);
         }
     }
 

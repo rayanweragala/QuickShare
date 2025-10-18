@@ -35,4 +35,7 @@ public class CreateRoomRequest {
     @NotBlank(message = "User ID is required")
     @Schema(description = "Unique user ID of the room creator")
     private String userId;
+
+    @Schema(description = "Mark room as Featured", defaultValue = "false")
+    private Boolean isFeatured;
 }
