@@ -1,0 +1,52 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: LocalShare-Backend
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+  web:
+    resources:
+      static-locations: classpath:/META-INF/resources/, classpath:/resources/, classpath:/static/, classpath:/public/
+  mvc:
+    static-path-pattern: /**
+
+socketio:
+  host: 0.0.0.0
+  port: 9092
+  max-frame-payload-length: 1048576
+  max-http-content-length: 1048576
+  boss-threads: 1
+  worker-threads: 4
+
+session:
+  timeout-minutes: 30
+  cleanup-interval-minutes: 5
+
+cors:
+  allowed-origins:
+    - http://localhost:5173
+    - http://localhost:3000
+    - http://localhost:8080
+  allowed-methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+  allowed-headers:
+    - "*"
+  allow-credentials: true
+
+logging:
+  config: classpath:logback-spring.xml
