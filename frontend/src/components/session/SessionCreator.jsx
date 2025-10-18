@@ -11,7 +11,7 @@ import {
 import { QRCodeDisplay } from "./QRCodeDisplay";
 import { FileTransferView } from "../transfer/FileTransferView";
 
-export const SessionCreator = () => {
+export const SessionCreator = ({onSessionEnd}) => {
   const {
     session,
     isLoading,
@@ -53,6 +53,7 @@ export const SessionCreator = () => {
     closeConnection();
     await endSession();
     setShowTransfer(false);
+    onSessionEnd?.();
   };
 
   if (!session) {
