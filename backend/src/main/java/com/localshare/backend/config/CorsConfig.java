@@ -1,10 +1,14 @@
 package com.localshare.backend.config;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 
 import java.util.List;
 
@@ -14,7 +18,7 @@ import java.util.List;
 
 @Configuration
 @ConfigurationProperties(prefix = "cors")
-public class CorsConfig implements WebMvcConfigurer{
+public class CorsConfig implements WebMvcConfigurer {
 
     private List<String> allowedOrigins;
     private List<String> allowedMethods;
@@ -54,13 +58,29 @@ public class CorsConfig implements WebMvcConfigurer{
     }
 
     @Override
-    public void addCorsMappings(CorsRegistry registry){
-        registry.addMapping("/api/**")
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**")
                 .allowedOrigins(allowedOrigins.toArray(new String[0]))
                 .allowedMethods(allowedMethods.toArray(new String[0]))
                 .allowedHeaders(allowedHeaders.toArray(new String[0]))
                 .allowCredentials(allowCredentials)
                 .maxAge(3600);
+    }
 
+    @Bean
+    public FilterRegistrationBean<CorsFilter> corsFilter() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(allowedOrigins);
+        config.setAllowedMethods(allowedMethods);
+        config.setAllowedHeaders(allowedHeaders);
+        config.setAllowCredentials(allowCredentials);
+        config.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+
+        FilterRegistrationBean<CorsFilter> bean = new FilterRegistrationBean<>(new CorsFilter(source));
+        bean.setOrder(1);
+        return bean;
     }
 }
