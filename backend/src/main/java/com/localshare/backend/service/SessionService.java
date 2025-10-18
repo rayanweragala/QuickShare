@@ -4,13 +4,12 @@ import com.localshare.backend.model.Session;
 import com.localshare.backend.model.SessionStatus;
 import com.localshare.backend.repository.SessionRepository;
 import com.localshare.backend.util.LoggerUtil;
-import com.localshare.backend.util.StringUtilities;
+import com.localshare.backend.component.StringUtilities;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Random;
 
 /**
  * service for session management
@@ -19,8 +18,8 @@ import java.util.Random;
 @Service
 @RequiredArgsConstructor
 public class SessionService {
-    private SessionRepository sessionRepository;
-    private StringUtilities stringUtilities;
+    private final SessionRepository sessionRepository;
+    private final StringUtilities stringUtilities;
 
     @Value("${session.timeout-minutes}")
     private int sessionTimeoutMinutes;
@@ -28,7 +27,7 @@ public class SessionService {
     /**
      * create a nre file sharing session
      */
-    private Session createSession(String senderSocketId, String senderIp) {
+    public Session createSession(String senderSocketId, String senderIp) {
         String sessionId = stringUtilities.generateUniqueSessionId();
 
         Session session = Session.builder()
@@ -128,5 +127,17 @@ public class SessionService {
             sessionRepository.update(session, sessionTimeoutMinutes);
             LoggerUtil.dev("session activity refreshed for sessionId=" + sessionId);
         }
+    }
+
+    /**
+     * delete a session manually
+     */
+    public boolean deleteSession(String sessionId){
+        boolean deleted = sessionRepository.delete(sessionId);
+
+        if(deleted){
+            LoggerUtil.audit("session deleted for sessioNId=" + sessionId);
+        }
+        return deleted;
     }
 }
