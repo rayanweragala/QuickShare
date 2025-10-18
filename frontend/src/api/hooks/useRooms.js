@@ -27,6 +27,20 @@ const roomAPI = {
     return response.json();
   },
 
+  searchRoomsAdvanced: async(params) => {
+    const queryParams = new URLSearchParams();
+
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        queryParams.append(key, value);
+      }
+    });
+
+    const response = await fetch(`${API_BASE_URL}/rooms/public/search/advanced?${queryParams.toString()}`);
+    if(!response.ok) throw new Error('Failed to search rooms');
+    return response.json();
+  },
+
   joinRoom: async (roomCode, socketId, userId) => {
     const response = await fetch(`${API_BASE_URL}/rooms/${roomCode}/join`, {
       method: 'POST',

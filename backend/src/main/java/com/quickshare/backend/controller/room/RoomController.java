@@ -13,7 +13,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -70,7 +72,7 @@ public class RoomController {
 
         LoggerUtil.audit("room join request for user=" + userUuid + ",ipAddress=" + ipAddress + ",socketId=" + socketId);
 
-        RoomDetailsResponse response = roomService.joinRoom(roomCode, userUuid, socketId, ipAddress, userId);
+        RoomDetailsResponse response = roomService.joinRoom(roomCode, socketId, ipAddress, userId);
         return ResponseEntity.ok(response);
     }
 
@@ -115,5 +117,30 @@ public class RoomController {
         String socketId = (String) httpRequest.getAttribute("socketId");
         roomService.leaveRoom(roomId, socketId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/public/search/advanced")
+    @Operation(summary = "Advanced search room", description = "Search room details by minimum participants, maximum participants,...")
+    public Page<RoomResponse> searchRoomsAdvanced(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) Integer minParticipants,
+            @RequestParam(required = false) Integer maxParticipants,
+            @RequestParam(required = false) Integer minFiles,
+            @RequestParam(required = false) Boolean hasSpace,
+            @RequestParam(defaultValue = "recent") String sortBy,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Pageable pageable = PageRequest.of(page,size, getSortOrder(sortBy));
+        return roomService.searchRoomsAdvanced(query,minParticipants,maxParticipants,minFiles,hasSpace,sortBy,pageable);
+    }
+
+    private Sort getSortOrder(String sortBy) {
+        return switch (sortBy) {
+            case "popular" -> Sort.by(Sort.Direction.DESC, "totalVisitors");
+            case "mostFiles" -> Sort.by(Sort.Direction.DESC, "fileCount");
+            case "leastCrowded" -> Sort.by(Sort.Direction.ASC, "participantCount");
+            default -> Sort.by(Sort.Direction.DESC, "createdAt");
+        };
     }
 }
