@@ -2,8 +2,8 @@ import { QRCodeSVG } from "qrcode.react";
 import { Card } from "../common";
 
 export const QRCodeDisplay = ({ sessionId, url }) => {
-  const qrValue = url || `${window.location.origin}/join/${sessionId}`;
-
+  const qrValue = url || sessionId;
+  
   return (
     <Card variant="dark" padding="lg" className="text-center border-neutral-700">
       <h3 className="text-lg font-semibold text-white mb-4">Scan to join</h3>

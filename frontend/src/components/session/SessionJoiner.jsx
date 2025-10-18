@@ -3,6 +3,8 @@ import { useSession } from "../../hooks/useSession";
 import { useWebRTC } from "../../hooks/useWebRTC";
 import { socketService } from "../../services/socket.service";
 import { logger } from "../../utils/logger";
+import { Camera } from "lucide-react";
+import { QRScanner } from "./QRScanner";
 
 import {
   Button,
@@ -13,7 +15,7 @@ import {
 } from "../common";
 import { FileTransferView } from "../transfer/FileTransferView";
 
-export const SessionJoiner = ({onSessionEnd}) => {
+export const SessionJoiner = ({ onSessionEnd }) => {
   const [code, setCode] = useState("");
   const {
     session,
@@ -31,17 +33,18 @@ export const SessionJoiner = ({onSessionEnd}) => {
     closeConnection,
   } = useWebRTC(false);
   const [showTransfer, setShowTransfer] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
-  if (isConnected && connectionState === "new") {
-    initializeConnection().then(() => {
-      setTimeout(() => {
-        logger.info('Sending ready signal to sender...');
-        socketService.sendReady();
-      }, 500);
-    });
-  }
-}, [isConnected, connectionState, initializeConnection]);
+    if (isConnected && connectionState === "new") {
+      initializeConnection().then(() => {
+        setTimeout(() => {
+          logger.info("Sending ready signal to sender...");
+          socketService.sendReady();
+        }, 500);
+      });
+    }
+  }, [isConnected, connectionState, initializeConnection]);
 
   useEffect(() => {
     if (isChannelReady) {
@@ -72,7 +75,6 @@ export const SessionJoiner = ({onSessionEnd}) => {
     setCode("");
     onSessionEnd?.();
   };
-
 
   if (!session) {
     return (
@@ -130,6 +132,17 @@ export const SessionJoiner = ({onSessionEnd}) => {
                 <p className="text-xs text-neutral-500 mt-2 text-center">
                   Enter the 6-digit code shared with you
                 </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="lg"
+                  fullWidth
+                  onClick={() => setShowScanner(true)}
+                  className="mt-4"
+                >
+                  <Camera className="w-5 h-5" />
+                  Scan QR Code
+                </Button>
               </div>
 
               <Button
@@ -142,6 +155,17 @@ export const SessionJoiner = ({onSessionEnd}) => {
               >
                 Join Session
               </Button>
+
+              {showScanner && (
+                <QRScanner
+                  onScanSuccess={(sessionId) => {
+                    setCode(sessionId);
+                    setShowScanner(false);
+                    joinSession(sessionId);
+                  }}
+                  onClose={() => setShowScanner(false)}
+                />
+              )}
             </form>
 
             <div className="mt-6 pt-6 border-t border-neutral-700">
@@ -223,7 +247,9 @@ export const SessionJoiner = ({onSessionEnd}) => {
 
           {!showTransfer && (
             <div className="group bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 sm:p-10 hover:bg-neutral-800/70 transition-all duration-300 hover:border-green-500/30 animate-fade-in">
-              <h2 className="text-2xl font-bold text-white mb-6">Connection Status</h2>
+              <h2 className="text-2xl font-bold text-white mb-6">
+                Connection Status
+              </h2>
 
               <div className="space-y-6">
                 <div>
