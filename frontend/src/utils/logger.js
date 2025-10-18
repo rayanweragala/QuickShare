@@ -1,31 +1,19 @@
 const isDevelopment = import.meta.env.DEV;
 
-export const logger = {
-  info: (...args) => {
-    if (isDevelopment) {
-      console.log('[INFO]', ...args);
-    }
-  },
+const noop = () => {};
 
-  warn: (...args) => {
-    if (isDevelopment) {
-      console.warn('[WARN]', ...args);
+export const logger = isDevelopment
+  ? {
+      info: (...args) => console.log('[INFO]', ...args),
+      warn: (...args) => console.warn('[WARN]', ...args),
+      error: (...args) => console.error('[ERROR]', ...args),
+      debug: (...args) => console.debug('[DEBUG]', ...args),
+      success: (...args) => console.log('[SUCCESS]', ...args),
     }
-  },
-
-  error: (...args) => {
-    console.error('[ERROR]', ...args);
-  },
-
-  debug: (...args) => {
-    if (isDevelopment) {
-      console.debug('[DEBUG]', ...args);
-    }
-  },
-
-  success: (...args) => {
-    if (isDevelopment) {
-      console.log('[SUCCESS]', ...args);
-    }
-  },
-}
+  : {
+      info: noop,
+      warn: noop,
+      error: console.error, 
+      debug: noop,
+      success: noop,
+    };

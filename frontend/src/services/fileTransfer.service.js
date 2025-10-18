@@ -1,29 +1,29 @@
-import { logger } from '../utils/logger';
-import { webrtcService } from './webrtc.service';
-import { chunkFile } from '../utils/file.utils';
+import { logger } from "../utils/logger";
+import { webrtcService } from "./webrtc.service";
+import { chunkFile } from "../utils/file.utils";
 
 /**
  * file Transfer Service - Handles chunked file transfers over WebRTC
  */
 
-const CHUNK_SIZE = 16 * 1024; 
-const METADATA_TYPE = 'metadata';
-const CHUNK_TYPE = 'chunk';
-const COMPLETE_TYPE = 'complete';
+const CHUNK_SIZE = 16 * 1024;
+const METADATA_TYPE = "metadata";
+const CHUNK_TYPE = "chunk";
+const COMPLETE_TYPE = "complete";
 
 class FileTransferService {
   constructor() {
     this.isSending = false;
     this.isReceiving = false;
-    
+
     this.currentFile = null;
     this.chunks = [];
     this.currentChunkIndex = 0;
-    
+
     this.receivedChunks = [];
     this.fileMetadata = null;
     this.receivedBytes = 0;
-    
+
     this.onSendProgress = null;
     this.onReceiveProgress = null;
     this.onSendComplete = null;
@@ -34,13 +34,9 @@ class FileTransferService {
   /**
    * send file through WebRTC data channel
    */
-  async sendFile(file) {
+  async sendFile(file, receiverIds = null) {
     if (this.isSending) {
-      throw new Error('Already sending a file');
-    }
-
-    if (!webrtcService.isChannelReady()) {
-      throw new Error('Data channel not ready');
+      throw new Error("Already sending a file");
     }
 
     try {
@@ -48,21 +44,37 @@ class FileTransferService {
       this.currentFile = file;
       this.currentChunkIndex = 0;
 
-      logger.info('Starting file transfer:', {
+      logger.info("Starting file transfer:", {
         name: file.name,
         size: file.size,
         type: file.type,
+        receivers: receiverIds ? receiverIds.length : 1,
       });
 
-      await this.sendMetadata(file);
+      if (receiverIds && receiverIds.length > 0) {
+        for (const receiverId of receiverIds) {
+          const channel = webrtcService.getDataChannel(receiverId);
+          if (!channel || channel.readyState !== "open") {
+            throw new Error(
+              `Data channel not ready for receiver: ${receiverId}`
+            );
+          }
+        }
+      } else {
+        const defaultChannel = webrtcService.getDataChannel();
+        if (!defaultChannel || defaultChannel.readyState !== "open") {
+          throw new Error("Data channel not ready");
+        }
+      }
+
+      await this.sendMetadata(file, receiverIds);
 
       this.chunks = chunkFile(file, CHUNK_SIZE);
       logger.info(`File split into ${this.chunks.length} chunks`);
 
-      await this.sendChunks();
-
+      await this.sendChunks(receiverIds);
     } catch (error) {
-      logger.error('File transfer failed:', error);
+      logger.error("File transfer failed:", error);
       this.isSending = false;
       if (this.onError) {
         this.onError(error);
@@ -70,12 +82,11 @@ class FileTransferService {
       throw error;
     }
   }
-
   /**
    * send file metadata
    * @param {File} file
    */
-  async sendMetadata(file) {
+  async sendMetadata(file, receiverIds = null) {
     const metadata = {
       type: METADATA_TYPE,
       name: file.name,
@@ -85,8 +96,18 @@ class FileTransferService {
       totalChunks: Math.ceil(file.size / CHUNK_SIZE),
     };
 
-    logger.info('Sending metadata:', metadata);
-    webrtcService.send(JSON.stringify(metadata));
+    logger.info("Sending metadata:", metadata);
+
+    const metadataStr = JSON.stringify(metadata);
+
+    if (receiverIds && receiverIds.length > 0) {
+      for (const receiverId of receiverIds) {
+        webrtcService.send(metadataStr, receiverId);
+        logger.info(`Sent metadata to receiver: ${receiverId}`);
+      }
+    } else {
+      webrtcService.send(metadataStr);
+    }
 
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
@@ -94,17 +115,28 @@ class FileTransferService {
   /**
    * send file chunks with flow control
    */
-  async sendChunks() {
+  async sendChunks(receiverIds = null) {
     const totalChunks = this.chunks.length;
 
     for (let i = 0; i < totalChunks; i++) {
       if (!this.isSending) {
-        logger.warn('Transfer cancelled');
+        logger.warn("Transfer cancelled");
         return;
       }
 
-      while (webrtcService.getBufferedAmount() > CHUNK_SIZE * 10) {
-        await new Promise((resolve) => setTimeout(resolve, 10));
+      if (receiverIds && receiverIds.length > 0) {
+        for (const receiverId of receiverIds) {
+          while (
+            webrtcService.getBufferedAmount(receiverId) >
+            CHUNK_SIZE * 10
+          ) {
+            await new Promise((resolve) => setTimeout(resolve, 10));
+          }
+        }
+      } else {
+        while (webrtcService.getBufferedAmount() > CHUNK_SIZE * 10) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
       }
 
       const chunk = this.chunks[i];
@@ -116,7 +148,15 @@ class FileTransferService {
         data: Array.from(new Uint8Array(arrayBuffer)),
       };
 
-      webrtcService.send(JSON.stringify(chunkMessage));
+      const chunkStr = JSON.stringify(chunkMessage);
+
+      if (receiverIds && receiverIds.length > 0) {
+        for (const receiverId of receiverIds) {
+          webrtcService.send(chunkStr, receiverId);
+        }
+      } else {
+        webrtcService.send(chunkStr);
+      }
 
       this.currentChunkIndex = i + 1;
 
@@ -128,22 +168,30 @@ class FileTransferService {
       logger.debug(`Sent chunk ${i + 1}/${totalChunks}`);
     }
 
-    this.sendComplete();
+    this.sendComplete(receiverIds);
   }
-
   /**
    * send transfer complete message
    */
-  sendComplete() {
+  sendComplete(receiverIds = null) {
     const completeMessage = {
       type: COMPLETE_TYPE,
     };
 
-    webrtcService.send(JSON.stringify(completeMessage));
-    logger.success('File transfer complete');
+    const completeStr = JSON.stringify(completeMessage);
+
+    if (receiverIds && receiverIds.length > 0) {
+      for (const receiverId of receiverIds) {
+        webrtcService.send(completeStr, receiverId);
+      }
+    } else {
+      webrtcService.send(completeStr);
+    }
+
+    logger.success("File transfer complete");
 
     this.isSending = false;
-    
+
     if (this.onSendComplete) {
       this.onSendComplete(this.currentFile);
     }
@@ -172,10 +220,10 @@ class FileTransferService {
           break;
 
         default:
-          logger.warn('Unknown message type:', message.type);
+          logger.warn("Unknown message type:", message.type);
       }
     } catch (error) {
-      logger.error('Failed to handle received data:', error);
+      logger.error("Failed to handle received data:", error);
     }
   }
 
@@ -183,8 +231,8 @@ class FileTransferService {
    * handle received metadata
    */
   handleMetadata(metadata) {
-    logger.info('Received file metadata:', metadata);
-    
+    logger.info("Received file metadata:", metadata);
+
     this.isReceiving = true;
     this.fileMetadata = metadata;
     this.receivedChunks = new Array(metadata.totalChunks);
@@ -196,7 +244,7 @@ class FileTransferService {
    */
   handleChunk(chunkMessage) {
     const { index, data } = chunkMessage;
-    
+
     const uint8Array = new Uint8Array(data);
     this.receivedChunks[index] = uint8Array;
     this.receivedBytes += uint8Array.length;
@@ -210,21 +258,23 @@ class FileTransferService {
       );
     }
 
-    logger.debug(`Received chunk ${index + 1}/${this.fileMetadata.totalChunks}`);
+    logger.debug(
+      `Received chunk ${index + 1}/${this.fileMetadata.totalChunks}`
+    );
   }
 
   /**
    * handle transfer complete
    */
   handleComplete() {
-    logger.success('File transfer complete, reconstructing file...');
+    logger.success("File transfer complete, reconstructing file...");
 
     try {
       const blob = new Blob(this.receivedChunks, {
         type: this.fileMetadata.mimeType,
       });
 
-      logger.success('File reconstructed:', {
+      logger.success("File reconstructed:", {
         name: this.fileMetadata.name,
         size: blob.size,
       });
@@ -236,9 +286,8 @@ class FileTransferService {
       }
 
       this.reset();
-
     } catch (error) {
-      logger.error('Failed to reconstruct file:', error);
+      logger.error("Failed to reconstruct file:", error);
       if (this.onError) {
         this.onError(error);
       }
@@ -249,7 +298,7 @@ class FileTransferService {
    * cancel ongoing transfer
    */
   cancel() {
-    logger.info('Cancelling file transfer...');
+    logger.info("Cancelling file transfer...");
     this.isSending = false;
     this.isReceiving = false;
     this.reset();

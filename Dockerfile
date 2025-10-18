@@ -24,6 +24,9 @@ COPY ./backend/src ./src
 #copy react build to Spring Boot static folder
 COPY --from=frontend-build /app/frontend/dist ./src/main/resources/static
 
+#copy public assets to static folder
+COPY --from=frontend-build /app/frontend/public ./src/main/resources/static
+
 #build Spring Boot with embedded frontend
 RUN mvn clean package -DskipTests
 
