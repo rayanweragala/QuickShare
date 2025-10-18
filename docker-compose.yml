@@ -30,6 +30,8 @@ services:
       - REDIS_URL=redis://redis:6379
       - SERVER_PORT=8080
       - SOCKETIO_PORT=8080
+      - TZ=Asia/Colombo
+      - JAVA_OPTS=-Duser.timezone=Asia/Colombo
     volumes:
       - backend-logs:/var/log/local-share
     depends_on:

@@ -8,6 +8,7 @@ import RoomModal from "./components/rooms/RoomModal";
 import { ErrorMessage } from "./components/common";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFeaturedRoomsSocket } from "./api/hooks/useFeaturedRoomsSocket";
+import { usePublicRoomsSocket } from "./api/hooks/usePublicRoomsSocket";
 import {
   Users,
   Plus,
@@ -17,7 +18,6 @@ import {
   Globe,
   Clock,
   ArrowRight,
-  TrendingUp,
   Eye,
   Send,
   Layers,
@@ -29,9 +29,11 @@ import {
   Wifi,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  Check,
   Settings,
-  Trash2,
 } from "lucide-react";
+import { Listbox } from "@headlessui/react";
 import { useQuery } from "@tanstack/react-query";
 import { roomAPI } from "./api/hooks/useRooms";
 import { logger } from "./utils/logger";
@@ -61,35 +63,33 @@ function App() {
     isError,
     error,
   } = useQuery({
-    queryKey: ["featuredRooms", sortBy],
+    queryKey: ["publicRooms", sortBy],
     queryFn: () =>
       roomAPI.searchRoomsAdvanced({
         sortBy: sortBy,
         page: 0,
         size: 12,
       }),
-    staleTime: 5 * 60 * 1000,
-    cacheTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    refetchOnMount: "always",
+    staleTime: 30 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
     refetchInterval: false,
+    enabled: true,
+    placeholderData: (previousData) => previousData,
   });
   const publicRooms = roomsData?.content || [];
 
   const handleRoomCreated = (room) => {
     setCreatedRoom(room);
     setShowSuccessModal(true);
-    queryClient.invalidateQueries(["featuredRooms"]);
+    queryClient.invalidateQueries(["publicRooms"]);
   };
 
   const handleJoinRoom = (roomCode) => {
     logger.debug("Joining room:", roomCode);
     setSelectedRoomCode(roomCode);
     setShowRoomModal(true);
-  };
-
-  const handleManualRefresh = () => {
-    queryClient.invalidateQueries(["featuredRooms"]);
   };
 
   const formatTimeRemaining = (expiresAt) => {
@@ -125,7 +125,7 @@ function App() {
 
   const resetToHome = () => {
     setView("home");
-     setJoinCode(""); 
+    setJoinCode("");
   };
 
   if (view === "sender") {
@@ -137,7 +137,7 @@ function App() {
   }
 
   if (view === "receiver") {
-    return <SessionJoiner onSessionEnd={resetToHome} initialCode={joinCode}  />;
+    return <SessionJoiner onSessionEnd={resetToHome} initialCode={joinCode} />;
   }
 
   const headerStats = [
@@ -214,6 +214,13 @@ function App() {
   const handleNextFeatured = () => {
     setFeaturedPage((prev) => (prev < totalFeaturedPages - 1 ? prev + 1 : 0));
   };
+
+  const sortOptions = [
+    { value: "recent", label: "Most Recent" },
+    { value: "popular", label: "Most Popular" },
+    { value: "mostFiles", label: "Most Files" },
+    { value: "leastCrowded", label: "Least Crowded" },
+  ];
 
   return (
     <div className="min-h-screen bg-black">
@@ -519,16 +526,63 @@ function App() {
                 Public Rooms
               </h3>
               <div className="flex items-center gap-3">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="hidden sm:block px-4 py-2 bg-zinc-900 border border-zinc-800 text-zinc-300 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50 hover:border-green-500/50 transition-all"
-                >
-                  <option value="recent">Most Recent</option>
-                  <option value="popular">Most Popular</option>
-                  <option value="mostFiles">Most Files</option>
-                  <option value="leastCrowded">Least Crowded</option>
-                </select>
+                <Listbox value={sortBy} onChange={setSortBy}>
+                  <Listbox.Label className="block text-xs font-medium text-zinc-400 mb-2">
+                    Sort By
+                  </Listbox.Label>
+
+                  <div className="relative">
+                    <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-zinc-800 py-2 pl-3 pr-10 text-left border border-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/50">
+                      <span className="block truncate text-white">
+                        {sortOptions.find((opt) => opt.value === sortBy)?.label}
+                      </span>
+                      <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                        <ChevronDown
+                          className="h-5 w-5 text-zinc-400"
+                          aria-hidden="true"
+                        />
+                      </span>
+                    </Listbox.Button>
+
+                    <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-zinc-800 py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm z-10 border border-zinc-700">
+                      {sortOptions.map((option) => (
+                        <Listbox.Option
+                          key={option.value}
+                          value={option.value}
+                          className={({ active }) =>
+                            `relative cursor-pointer select-none py-2 pl-10 pr-4 ${
+                              active
+                                ? "bg-green-500/20 text-green-300"
+                                : "text-zinc-300"
+                            }`
+                          }
+                        >
+                          {({ selected }) => (
+                            <>
+                              <span
+                                className={`block truncate ${
+                                  selected
+                                    ? "font-medium text-white"
+                                    : "font-normal"
+                                }`}
+                              >
+                                {option.label}
+                              </span>
+                              {selected && (
+                                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-green-400">
+                                  <Check
+                                    className="h-5 w-5"
+                                    aria-hidden="true"
+                                  />
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </Listbox.Option>
+                      ))}
+                    </Listbox.Options>
+                  </div>
+                </Listbox>
                 <button
                   onClick={() => setShowCreateModal(true)}
                   className="hidden sm:flex items-center gap-2 px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg transition-all border border-green-500/30 font-medium"
@@ -556,12 +610,6 @@ function App() {
                   message={error?.message || "Failed to load rooms"}
                   className="mx-auto max-w-md mb-4"
                 />
-                <button
-                  onClick={handleManualRefresh}
-                  className="mt-4 px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg transition-all shadow-lg shadow-green-500/50"
-                >
-                  Retry
-                </button>
               </div>
             ) : publicRooms.length === 0 ? (
               <div className="text-center py-16">
@@ -581,7 +629,7 @@ function App() {
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4">
                   {publicRooms.slice(0, 12).map((room) => (
                     <div
                       key={room.id}

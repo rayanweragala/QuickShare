@@ -11,13 +11,17 @@ public interface RoomProjection {
     String getRoomName();
     String getRoomIcon();
     String getCreatorAnimalName();
-    RoomVisibility getRoomVisibility();
     RoomStatus getStatus();
+    Integer getParticipantCount();
+    Integer getFileCount();
+    Long getCurrentStorageBytes();
+    Long getMaxStorageBytes();
     Integer getMaxParticipants();
+
     LocalDateTime getCreatedAt();
     LocalDateTime getExpiresAt();
-    Long getTotalVisitors();
-    Long getParticipantCount();
-    Long getFileCount();
     Long getTotalDownloads();
+    Long getTotalVisitors();
+    Boolean getIsFeatured();
+    RoomVisibility getRoomVisibility();
 }

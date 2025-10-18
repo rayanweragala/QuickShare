@@ -5,6 +5,7 @@ import com.quickshare.backend.dto.room.ParticipantInfo;
 import com.quickshare.backend.dto.room.RoomDetailsResponse;
 import com.quickshare.backend.dto.room.RoomStats;
 import com.quickshare.backend.entity.Room;
+import com.quickshare.backend.entity.RoomFile;
 import com.quickshare.backend.entity.RoomParticipant;
 import com.quickshare.backend.mapper.RoomMapper;
 import com.quickshare.backend.repository.RoomRepository;
@@ -30,6 +31,7 @@ public class RoomCacheService {
                 .map(RoomMapper::mapToParticipantInfo).collect(Collectors.toList());
 
         List<FileInfo> files = room.getFiles().stream()
+                .filter(RoomFile::getIsAvailable)
                 .map(RoomMapper::mapToFileInfo).collect(Collectors.toList());
 
         RoomStats stats = RoomStats.builder()
