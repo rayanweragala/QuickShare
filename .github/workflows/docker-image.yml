@@ -40,7 +40,8 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/localshare:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/localshare:${{ github.sha }}
 
-      - name: Optionally trigger Render deploy hook
+      - name: Trigger Render deploy
         if: secrets.RENDER_DEPLOY_HOOK != ''
         run: |
-          curl -sSf -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
+           echo "Triggering Render deploy..."
+           curl -sSf -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}" || (echo "Render deploy failed" && exit 1)
