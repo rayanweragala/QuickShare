@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { useSession } from "../../hooks/useSession";
 import { useWebRTC } from "../../hooks/useWebRTC";
+import { socketService } from "../../services/socket.service";
+import { logger } from "../../utils/logger";
+
 import {
   Button,
   Card,
@@ -31,10 +34,15 @@ export const SessionJoiner = () => {
   const [showTransfer, setShowTransfer] = useState(false);
 
   useEffect(() => {
-    if (isConnected && connectionState === "new") {
-      initializeConnection();
-    }
-  }, [isConnected, connectionState, initializeConnection]);
+  if (isConnected && connectionState === "new") {
+    initializeConnection().then(() => {
+      setTimeout(() => {
+        logger.info('Sending ready signal to sender...');
+        socketService.sendReady();
+      }, 500);
+    });
+  }
+}, [isConnected, connectionState, initializeConnection]);
 
   useEffect(() => {
     if (isChannelReady) {

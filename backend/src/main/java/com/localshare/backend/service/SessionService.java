@@ -25,7 +25,7 @@ public class SessionService {
     private int sessionTimeoutMinutes;
 
     /**
-     * create a nre file sharing session
+     * create a new file sharing session
      */
     public Session createSession(String senderSocketId, String senderIp) {
         String sessionId = stringUtilities.generateUniqueSessionId();
@@ -56,7 +56,7 @@ public class SessionService {
             throw new IllegalStateException("session not found or expired");
         }
 
-        if (session.getReceiverSocketId() != null) {
+        if (session.getReceiverSocketId() != null && !session.getReceiverSocketId().startsWith("temp-")) {
             LoggerUtil.warn(SessionService.class, "join attempt failed, session already has a receiver for sessionId=" + sessionId);
             throw new IllegalStateException("session already have a receiver");
         }
@@ -67,12 +67,52 @@ public class SessionService {
         session.updateActivity();
 
         sessionRepository.save(session, sessionTimeoutMinutes);
-        LoggerUtil.audit("session joined for sesisonId=" + sessionId + ",receiverIp=" + receiverIp);
+        LoggerUtil.audit("session joined for sessionId=" + sessionId + ",receiverIp=" + receiverIp);
         return session;
     }
 
     /**
-     * update session status (e.g., from CONNECTED to TRANSFERRING"
+     * Update sender socket ID when actual WebSocket connection is established
+     * This replaces the temporary socket ID with the real one
+     */
+    public void updateSenderSocketId(String sessionId, String realSocketId) {
+        Session session = sessionRepository.findById(sessionId);
+
+        if (session != null) {
+            String oldSocketId = session.getSenderSocketId();
+            session.setSenderSocketId(realSocketId);
+            session.updateActivity();
+            sessionRepository.update(session, sessionTimeoutMinutes);
+
+            LoggerUtil.audit("sender socket updated for sessionId=" + sessionId +
+                    ",oldSocketId=" + oldSocketId + ",newSocketId=" + realSocketId);
+        } else {
+            LoggerUtil.warn(SessionService.class, "failed to update sender socket, session not found for sessionId=" + sessionId);
+        }
+    }
+
+    /**
+     * Update receiver socket ID when actual WebSocket connection is established
+     * This replaces the temporary socket ID with the real one
+     */
+    public void updateReceiverSocketId(String sessionId, String realSocketId) {
+        Session session = sessionRepository.findById(sessionId);
+
+        if (session != null) {
+            String oldSocketId = session.getReceiverSocketId();
+            session.setReceiverSocketId(realSocketId);
+            session.updateActivity();
+            sessionRepository.update(session, sessionTimeoutMinutes);
+
+            LoggerUtil.audit("receiver socket updated for sessionId=" + sessionId +
+                    ",oldSocketId=" + oldSocketId + ",newSocketId=" + realSocketId);
+        } else {
+            LoggerUtil.warn(SessionService.class, "failed to update receiver socket, session not found for sessionId=" + sessionId);
+        }
+    }
+
+    /**
+     * update session status (e.g., from CONNECTED to TRANSFERRING)
      */
     public void updateSessionStatus(String sessionId, SessionStatus newStatus) {
         Session session = sessionRepository.findById(sessionId);
@@ -105,7 +145,7 @@ public class SessionService {
             }
             sessionRepository.update(session, sessionTimeoutMinutes);
 
-            LoggerUtil.audit("progress updated for sessionId=" + sessionId + ",completed=" + completedFiles + "/" + completedFiles);
+            LoggerUtil.audit("progress updated for sessionId=" + sessionId + ",completed=" + completedFiles + "/" + totalFiles);
         }
     }
 
@@ -136,7 +176,7 @@ public class SessionService {
         boolean deleted = sessionRepository.delete(sessionId);
 
         if(deleted){
-            LoggerUtil.audit("session deleted for sessioNId=" + sessionId);
+            LoggerUtil.audit("session deleted for sessionId=" + sessionId);
         }
         return deleted;
     }
