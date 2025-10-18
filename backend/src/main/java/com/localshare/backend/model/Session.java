@@ -7,6 +7,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * file sharing session between two peers
@@ -27,6 +29,11 @@ public class Session implements Serializable {
     private Integer completedFiles;
     private String senderIp;
     private String receiverIp;
+    private Set<String> receiverSocketIds;
+    private Map<String,String> receiverIps;
+    private Map<String,Integer> receiverProgress;
+    private int maxReceivers = 10;
+    private boolean isMultiRecipient;
     public boolean isBothConnected(){
         return senderSocketId != null && receiverSocketId != null;
     }
