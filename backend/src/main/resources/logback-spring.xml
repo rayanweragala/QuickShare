@@ -56,7 +56,7 @@
         <appender-ref ref="STDOUT"/>
     </logger>
 
-    <logger name="com.localshare.backend" level="INFO" additivity="false">
+    <logger name="com.quickshare.backend" level="INFO" additivity="false">
         <appender-ref ref="FILE"/>
         <appender-ref ref="STDOUT"/>
     </logger>
