@@ -1,4 +1,4 @@
-![Release v1.1.0](https://img.shields.io/badge/release-v1.1.0-blue)
+![Release v1.1.0](https://img.shields.io/badge/release-v1.2.0-blue)
 # QuickShare
 
 A secure, peer-to-peer file sharing web application that enables instant file transfers between devices without uploading files to any server.
