@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useSession } from "../../hooks/useSession";
 import { useWebRTC } from "../../hooks/useWebRTC";
+import { socketService } from "../../services/socket.service";
+import { logger } from "../../utils/logger";
 import {
   Button,
   Card,
@@ -11,23 +13,31 @@ import {
 import { QRCodeDisplay } from "./QRCodeDisplay";
 import { FileTransferView } from "../transfer/FileTransferView";
 
-export const SessionCreator = ({onSessionEnd}) => {
+export const SessionCreator = ({ onSessionEnd, isBroadcast = false }) => {
   const {
     session,
     isLoading,
     error,
     isConnected,
+    isBroadcastMode,
+    activeReceivers,
     createSession,
+    createBroadcastSession,
     endSession,
     clearError,
   } = useSession();
+
   const {
     connectionState,
     isChannelReady,
+    connectedReceivers,
+    error: webrtcError,
     initializeConnection,
     closeConnection,
-  } = useWebRTC(true);
+  } = useWebRTC(true, isBroadcast);
+
   const [showTransfer, setShowTransfer] = useState(false);
+  const [isReadyToSend, setIsReadyToSend] = useState(false);
 
   useEffect(() => {
     if (isConnected && connectionState === "new") {
@@ -36,24 +46,65 @@ export const SessionCreator = ({onSessionEnd}) => {
   }, [isConnected, connectionState, initializeConnection]);
 
   useEffect(() => {
-    if (isChannelReady) {
-      setShowTransfer(true);
+  if (isChannelReady) {
+    setShowTransfer(true);
+    if (!isBroadcastMode) { 
+      setIsReadyToSend(true);
     }
-  }, [isChannelReady]);
+  }
+}, [isChannelReady, isBroadcastMode]);
+
+  useEffect(() => {
+    const handlePeerDisconnected = () => {
+      logger.warn("Peer disconnected, redirecting to main...");
+      closeConnection();
+      setShowTransfer(false);
+      onSessionEnd?.();
+    };
+
+    socketService.on("peer-disconnected", handlePeerDisconnected);
+
+    return () => {
+      socketService.off("peer-disconnected");
+    };
+  }, [onSessionEnd, closeConnection]);
 
   const handleCreateSession = async () => {
+    console.log("isBroadcast prop value:", isBroadcast);
     try {
-      await createSession();
+      if (isBroadcast) {
+        console.log("Calling createBroadcastSession");
+        await createBroadcastSession();
+      } else {
+        console.log("Calling createSession");
+        await createSession();
+      }
     } catch (err) {
       console.error("Create session error:", err);
     }
   };
 
   const handleEndSession = async () => {
-    closeConnection();
-    await endSession();
-    setShowTransfer(false);
-    onSessionEnd?.();
+    try {
+      closeConnection();
+      socketService.disconnect();
+      await endSession();
+
+      setShowTransfer(false);
+      onSessionEnd?.();
+    } catch (err) {
+      logger.error("Error ending session:", err);
+      onSessionEnd?.();
+    }
+  };
+
+  const validReceivers = activeReceivers.filter(
+    (id) => id && !id.startsWith("pending")
+  );
+
+  const handleStartTransfer = () => {
+    setIsReadyToSend(true);
+    setShowTransfer(true);
   };
 
   if (!session) {
@@ -82,12 +133,22 @@ export const SessionCreator = ({onSessionEnd}) => {
               <h1 className="text-4xl font-bold text-white mb-2">
                 Local<span className="text-green-500">Share</span>
               </h1>
-              <p className="text-neutral-400">Create a session to start sharing</p>
+              <p className="text-neutral-400">
+                Create a session to start sharing
+              </p>
             </div>
 
             {error && (
               <ErrorMessage
                 message={error}
+                onDismiss={clearError}
+                className="mb-6"
+              />
+            )}
+
+            {webrtcError && (
+              <ErrorMessage
+                message={webrtcError}
                 onDismiss={clearError}
                 className="mb-6"
               />
@@ -121,13 +182,17 @@ export const SessionCreator = ({onSessionEnd}) => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 pt-8">
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
-              Share Session Active
+              {isBroadcastMode
+                ? "Broadcast Session Active"
+                : "Share Session Active"}
             </h1>
             <div className="flex items-center gap-3">
               <StatusBadge status={connectionState} />
               {isChannelReady && (
                 <span className="text-sm text-green-400 font-medium">
-                  Ready to send files
+                  {isBroadcastMode
+                    ? `Ready to send to ${validReceivers.length} receiver(s)`
+                    : "Ready to send files"}
                 </span>
               )}
             </div>
@@ -145,20 +210,26 @@ export const SessionCreator = ({onSessionEnd}) => {
           />
         )}
 
+        {webrtcError && (
+          <ErrorMessage
+            message={webrtcError}
+            onDismiss={clearError}
+            className="mb-6"
+          />
+        )}
+
         {!showTransfer && session && (
           <div className="animate-fade-in">
             <div className="grid sm:grid-cols-2 gap-6 mb-8">
               <QRCodeDisplay sessionId={session.sessionId} />
-              
+
               <div className="group bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 sm:p-10 hover:bg-neutral-800/70 transition-all duration-300 hover:border-green-500/30">
                 <div className="text-center">
                   <h2 className="text-xl font-bold text-white mb-4">
                     Session Code
                   </h2>
                   <div className="bg-neutral-900/50 rounded-2xl p-6 border border-neutral-700">
-                    <div className="session-code">
-                      {session.sessionId}
-                    </div>
+                    <div className="session-code">{session.sessionId}</div>
                   </div>
                   <p className="text-neutral-400 text-sm mt-4">
                     Share this code with others
@@ -166,6 +237,37 @@ export const SessionCreator = ({onSessionEnd}) => {
                 </div>
               </div>
             </div>
+
+            {isBroadcastMode && (
+              <div className="group bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 sm:p-10 hover:bg-neutral-800/70 transition-all duration-300 hover:border-green-500/30 mb-8">
+                <h2 className="text-2xl font-bold text-white mb-6">
+                  Active Receivers ({validReceivers.length})
+                </h2>
+
+                {validReceivers.length === 0 ? (
+                  <p className="text-neutral-400 text-center py-8">
+                    Waiting for receivers to join...
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {validReceivers.map((receiverId, index) => (
+                      <div
+                        key={receiverId}
+                        className="bg-neutral-900/50 rounded-xl p-4 border border-neutral-700 flex items-center gap-3"
+                      >
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                        <span className="text-neutral-300">
+                          Receiver {index + 1}
+                        </span>
+                        <span className="text-neutral-500 text-sm ml-auto font-mono">
+                          {receiverId.substring(0, 8)}...
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="group bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 sm:p-10 hover:bg-neutral-800/70 transition-all duration-300 hover:border-green-500/30 mb-8">
               <h2 className="text-2xl font-bold text-white mb-6">
@@ -200,9 +302,7 @@ export const SessionCreator = ({onSessionEnd}) => {
                   <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mb-4">
                     <span className="text-green-400 font-bold text-lg">3</span>
                   </div>
-                  <h3 className="text-white font-semibold mb-2">
-                    Send files
-                  </h3>
+                  <h3 className="text-white font-semibold mb-2">Send files</h3>
                   <p className="text-neutral-400 text-sm">
                     Transfer files directly and securely
                   </p>
@@ -212,22 +312,64 @@ export const SessionCreator = ({onSessionEnd}) => {
           </div>
         )}
 
-        {!isChannelReady && !showTransfer && session && (
+        {!showTransfer && session && validReceivers.length > 0 && (
+          <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-12 text-center animate-fade-in">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/10 rounded-full mb-6">
+              <svg
+                className="w-8 h-8 text-green-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-4">
+              {validReceivers.length}{" "}
+              {validReceivers.length === 1 ? "Receiver" : "Receivers"} Connected
+            </h3>
+            <p className="text-neutral-400 mb-6">
+              Ready to start sending files
+            </p>
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={handleStartTransfer}
+              className="min-w-[200px]"
+            >
+              Start Sending Files
+            </Button>
+            <p className="text-sm text-neutral-500 mt-4">
+              More receivers can join before you start
+            </p>
+          </div>
+        )}
+
+        {!showTransfer && session && validReceivers.length === 0 && (
           <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-12 text-center animate-fade-in">
             <LoadingSpinner size="lg" />
             <p className="mt-6 text-lg font-medium text-white">
-              Waiting for recipient...
+              Waiting for receivers to join...
             </p>
             <p className="mt-2 text-sm text-neutral-400">
-              Share the code above to establish connection
+              Share the code above with others
             </p>
           </div>
         )}
 
         {showTransfer && (
-          <div className="animate-fade-in">
-            <FileTransferView role="sender" />
-          </div>
+          <FileTransferView
+            role="sender"
+            connectedReceivers={connectedReceivers}
+            isBroadcastMode={isBroadcastMode}
+            onEndSession={handleEndSession}
+            isReadyToSend={isReadyToSend}
+          />
         )}
       </div>
     </div>
