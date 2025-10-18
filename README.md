@@ -31,7 +31,7 @@ A secure, peer-to-peer file sharing web application that enables instant file tr
 
 QuickShare allows users to share files directly between browsers using WebRTC technology. Files are transferred peer-to-peer, ensuring privacy and speed. The Spring Boot backend serves only as a signaling server for establishing peer connections.
 
-**Live Demo:** [[https://localshare-15ui.onrender.com/](https://quickshare-xuck.onrender.com/)]
+**Live Demo:** [[https://quickshare-xuck.onrender.com/](https://quickshare-xuck.onrender.com/)]
 
 ## Key Features
 
