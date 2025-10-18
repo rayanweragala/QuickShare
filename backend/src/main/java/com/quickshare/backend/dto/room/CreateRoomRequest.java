@@ -2,6 +2,7 @@ package com.quickshare.backend.dto.room;
 
 import com.quickshare.backend.model.enums.RoomVisibility;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -30,4 +31,8 @@ public class CreateRoomRequest {
 
     @Schema(description = "Maximum number of participants allowed in the room")
     private Integer maxParticipants;
+
+    @NotBlank(message = "User ID is required")
+    @Schema(description = "Unique user ID of the room creator")
+    private String userId;
 }

@@ -4,6 +4,7 @@ import { statsService } from "./services/stats.service";
 import CreateRoomModal from "../src/components/rooms/CreateRoomModal";
 import { RoomSuccessModal } from "../src/components/rooms/RoomSuccessModal";
 import { PublicRoomsList } from "./components/rooms/PublicRoomsList";
+import RoomModal from "./components/rooms/RoomModal";
 import { ErrorMessage } from "./components/common";
 import {
   Users,
@@ -34,6 +35,8 @@ function App() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPublicRooms, setShowPublicRooms] = useState(false);
   const [createdRoom, setCreatedRoom] = useState(null);
+  const [showRoomModal, setShowRoomModal] = useState(false);
+  const [selectedRoomCode, setSelectedRoomCode] = useState(null);
 
   const { data: roomsData, isLoading: roomsLoading, isError, error, refetch } = useQuery({
     queryKey: ["featuredRooms"],
@@ -51,7 +54,8 @@ function App() {
 
   const handleJoinRoom = (roomCode) => {
     logger.debug("Joining room:", roomCode);
-    setShowSuccessModal(true);
+    setSelectedRoomCode(roomCode);
+    setShowRoomModal(true);
   };
 
   const formatTimeRemaining = (expiresAt) => {
@@ -533,6 +537,15 @@ function App() {
         onJoinRoom={handleJoinRoom}
         isOpen={showPublicRooms}
         onClose={() => setShowPublicRooms(false)}
+      />
+
+      <RoomModal
+        isOpen={showRoomModal}
+        onClose={() => {
+          setShowRoomModal(false)
+          setSelectedRoomCode(null)
+        }}
+        roomCode={selectedRoomCode}
       />
     </div>
   );

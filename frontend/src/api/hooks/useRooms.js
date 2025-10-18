@@ -1,15 +1,5 @@
-import { QueryClient } from '@tanstack/react-query';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
-});
-
-const API_BASE_URL = 'http://localhost:8080/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
 
 const roomAPI = {
   createRoom: async (data) => {
@@ -37,18 +27,35 @@ const roomAPI = {
     return response.json();
   },
 
-  joinRoom: async (roomCode, socketId) => {
+  joinRoom: async (roomCode, socketId, userId) => {
     const response = await fetch(`${API_BASE_URL}/rooms/${roomCode}/join`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-User-UUID': localStorage.getItem('userUuid') || 'anonymous',
       },
-      body: JSON.stringify({ socketId }),
+      body: JSON.stringify({ socketId, userId }),
     });
     if (!response.ok) throw new Error('Failed to join room');
     return response.json();
   },
+
+  leaveRoom: async(roomId,socketId) => {
+    const response = await fetch(`${API_BASE_URL}/rooms/${roomId}/leave`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json'},
+      body: JSON.stringify({socketId})
+    });
+    if(!response.ok) throw new Error('Failed to leave room');
+  },
+
+  getRoomDetails: async(roomId) => {
+    const response = await fetch(`${API_BASE_URL}/rooms/${roomId}`);
+    if(!response.ok) throw new Error('Failed to fetch room details')
+      return response.json();
+  }
 };
+
+
 
 export { roomAPI };
