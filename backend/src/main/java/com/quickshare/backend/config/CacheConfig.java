@@ -22,6 +22,7 @@ public class CacheConfig {
                 "rooms",
                 "roomDetails",
                 "publicRooms",
+                "privateRooms",
                 "roomParticipants",
                 "roomFiles"
         ));

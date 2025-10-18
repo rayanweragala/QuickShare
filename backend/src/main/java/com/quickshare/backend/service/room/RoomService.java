@@ -44,7 +44,7 @@ public class RoomService {
     private final RoomCacheService roomCacheService;
     private final WebSocketHandler webSocketHandler;
     @Transactional
-    @CacheEvict(value = {"publicRooms","rooms"}, allEntries = true)
+    @CacheEvict(value = {"publicRooms","rooms","privateRooms"}, allEntries = true)
     public RoomResponse createRoom(CreateRoomRequest request, String userUuid, String ipAddress) {
         if(!rateLimitService.canCreateRoom(userUuid)) {
             throw new RuntimeException("room creation limit exceeded for today");
@@ -206,18 +206,31 @@ public class RoomService {
     @Transactional(readOnly = true)
     @Cacheable(value = "publicRooms", key = "'page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize", unless = "#result == null || #result.isEmpty()")
     public Page<RoomResponse> getPublicRooms(Pageable pageable) {
-        return roomRepository.findPublicRooms(RoomVisibility.PUBLIC, RoomStatus.ACTIVE, pageable).map(RoomMapper::mapToRoomResponse);
+        return roomRepository.findPublicRooms(RoomVisibility.PUBLIC, RoomStatus.ACTIVE, pageable).map(RoomMapper::mapToPublicRoomResponse);
+    }
+
+    @Transactional(readOnly = true)
+    @Cacheable(value = "privateRooms", key = "'page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize", unless = "#result == null || #result.isEmpty()")
+    public Page<RoomResponse> getPrivateRooms(Pageable pageable) {
+        return roomRepository.findPrivateRooms(RoomVisibility.PRIVATE, RoomStatus.ACTIVE,pageable).map(RoomMapper::mapToPrivateRoomResponse);
     }
 
     @Transactional(readOnly = true)
     @Cacheable(value = "publicRooms", key = "'search_' + #search + '_page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize", unless = "#result == null || #result.isEmpty()")
     public Page<RoomResponse> searchPublicRooms(String search, Pageable pageable) {
         return roomRepository.searchPublicRooms(RoomVisibility.PUBLIC, RoomStatus.ACTIVE, search, pageable)
-                .map(RoomMapper::mapToRoomResponse);
+                .map(RoomMapper::mapToPublicRoomResponse);
+    }
+
+    @Transactional(readOnly = true)
+    @Cacheable(value = "privateRooms", key = "'search_' + #search + '_page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize", unless = "#result == null || #result.isEmpty()")
+    public Page<RoomResponse> searchPrivateRooms(String search, Pageable pageable) {
+        return roomRepository.searchPrivateRooms(RoomVisibility.PRIVATE, RoomStatus.ACTIVE, search, pageable)
+                .map(RoomMapper::mapToPrivateRoomResponse);
     }
 
     @Transactional
-    @CacheEvict(value = {"roomDetails", "roomParticipants", "publicRooms", "rooms"}, key = "#roomId")
+    @CacheEvict(value = {"roomDetails", "roomParticipants", "publicRooms", "rooms", "privateRooms"}, key = "#roomId")
     public void leaveRoom(Long roomId, String userUuid) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("room not found"));
@@ -242,7 +255,7 @@ public class RoomService {
     }
 
     @Transactional
-    @CacheEvict(value = {"rooms", "roomDetails", "roomParticipants", "publicRooms", "roomFiles"}, key = "#roomId")
+    @CacheEvict(value = {"rooms", "roomDetails", "roomParticipants", "publicRooms", "roomFiles", "privateRooms"}, key = "#roomId")
     public void deleteRoom(Long roomId, String userUuid) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("room not found"));
@@ -253,7 +266,7 @@ public class RoomService {
 
 
     @Scheduled(cron = "0 0 * * * ?")
-    @CacheEvict(value = {"rooms", "roomDetails", "publicRooms", "roomParticipants", "roomFiles"}, allEntries = true)
+    @CacheEvict(value = {"rooms", "roomDetails", "publicRooms", "roomParticipants", "roomFiles", "privateRooms"}, allEntries = true)
     public void expireExpiredRooms() {
         LocalDateTime now = LocalDateTime.now();
         List<Room> expiredRooms = roomRepository.findExpiredRooms(now,RoomStatus.ACTIVE);

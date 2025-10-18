@@ -155,11 +155,11 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
 
   if (joinMutation?.isPending) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-        <div className="bg-gradient-to-br from-neutral-900 to-neutral-800 rounded-2xl border border-neutral-700 p-8 shadow-2xl">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+        <div className="bg-zinc-900 rounded-2xl border border-zinc-800 p-8 shadow-2xl">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-4 border-neutral-700 border-t-green-500 rounded-full animate-spin" />
-            <p className="text-neutral-300 font-medium">Joining room...</p>
+            <div className="w-12 h-12 border-4 border-zinc-800 border-t-green-500 rounded-full animate-spin" />
+            <p className="text-zinc-300 font-medium">Joining room...</p>
           </div>
         </div>
       </div>
@@ -184,12 +184,12 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in overflow-y-auto">
-        <div className="w-full max-w-4xl bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 rounded-2xl border border-neutral-700 shadow-2xl my-8">
-          <div className="relative bg-gradient-to-r from-green-900/40 via-emerald-900/40 to-green-900/40 border-b border-green-500/30 px-6 py-5">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in overflow-y-auto">
+        <div className="w-full max-w-4xl bg-zinc-900 rounded-2xl border border-zinc-800 shadow-2xl my-8">
+          <div className="relative bg-zinc-900/50 border-b border-green-500/10 px-6 py-5">
             <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-green-500/20 rounded-xl flex items-center justify-center text-3xl">
+                <div className="w-14 h-14 bg-green-500/10 rounded-xl flex items-center justify-center text-3xl border border-green-500/20">
                   {room.roomIcon}
                 </div>
                 <div>
@@ -199,7 +199,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                         type="text"
                         value={editedRoomName}
                         onChange={(e) => setEditedRoomName(e.target.value)}
-                        className="px-3 py-1 bg-neutral-800/50 border border-neutral-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50"
+                        className="px-3 py-1 bg-zinc-800 border border-zinc-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50"
                       />
                       <button
                         onClick={() => setIsEditing(false)}
@@ -223,15 +223,15 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                       )}
                     </div>
                   )}
-                  <p className="text-sm text-neutral-400">
+                  <p className="text-sm text-zinc-400">
                     by {room.creatorAnimalName}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center justify-between w-full sm:w-auto sm:justify-start sm:gap-3">
-                <div className="flex items-center gap-2 px-3 py-2 bg-neutral-800/50 rounded-lg">
-                  <span className="text-xs text-neutral-400">Code:</span>
+                <div className="flex items-center gap-2 px-3 py-2 bg-zinc-800/50 rounded-lg border border-zinc-700">
+                  <span className="text-xs text-zinc-400">Code:</span>
                   <span className="text-sm font-mono font-bold text-green-400">
                     {room.roomCode}
                   </span>
@@ -242,14 +242,14 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                     {copiedCode ? (
                       <Check className="w-4 h-4 text-green-400" />
                     ) : (
-                      <Copy className="w-4 h-4 text-neutral-400 hover:text-green-400" />
+                      <Copy className="w-4 h-4 text-zinc-400 hover:text-green-400" />
                     )}
                   </button>
                 </div>
 
                 <button
                   onClick={onClose}
-                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-neutral-800/50 hover:bg-neutral-700 text-neutral-400 hover:text-white transition-all"
+                  className="w-9 h-9 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-all border border-zinc-700"
                   title="Close modal"
                 >
                   <X className="w-5 h-5" />
@@ -263,40 +263,40 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                 <span className="text-white font-semibold">
                   {participants.length}
                 </span>
-                <span className="text-neutral-400">
+                <span className="text-zinc-400">
                   / {room.maxParticipants || "∞"}
                 </span>
               </div>
 
-              <div className="h-4 w-px bg-neutral-700"></div>
+              <div className="h-4 w-px bg-zinc-700"></div>
 
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="w-4 h-4 text-yellow-400" />
                 <span className="text-white font-semibold">
                   {formatTimeRemaining(room.expiresAt)}
                 </span>
-                <span className="text-neutral-400">left</span>
+                <span className="text-zinc-400">left</span>
               </div>
 
-              <div className="h-4 w-px bg-neutral-700"></div>
+              <div className="h-4 w-px bg-zinc-700"></div>
 
               <div className="flex items-center gap-2 text-sm">
                 <Eye className="w-4 h-4 text-purple-400" />
                 <span className="text-white font-semibold">
                   {room.totalVisitors}
                 </span>
-                <span className="text-neutral-400">visitors</span>
+                <span className="text-zinc-400">visitors</span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 px-6 pt-4 border-b border-neutral-700/50">
+          <div className="flex items-center gap-2 px-6 pt-4 border-b border-zinc-800">
             <button
               onClick={() => setActiveTab("members")}
               className={`px-4 py-2 font-medium transition-all ${
                 activeTab === "members"
                   ? "text-green-400 border-b-2 border-green-400"
-                  : "text-neutral-400 hover:text-neutral-300"
+                  : "text-zinc-400 hover:text-zinc-300"
               }`}
             >
               <div className="flex items-center gap-2">
@@ -310,7 +310,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
               className={`px-4 py-2 font-medium transition-all ${
                 activeTab === "files"
                   ? "text-green-400 border-b-2 border-green-400"
-                  : "text-neutral-400 hover:text-neutral-300"
+                  : "text-zinc-400 hover:text-zinc-300"
               }`}
             >
               <div className="flex items-center gap-2">
@@ -324,7 +324,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
               className={`px-4 py-2 font-medium transition-all ${
                 activeTab === "settings"
                   ? "text-green-400 border-b-2 border-green-400"
-                  : "text-neutral-400 hover:text-neutral-300"
+                  : "text-zinc-400 hover:text-zinc-300"
               }`}
             >
               <div className="flex items-center gap-2">
@@ -338,7 +338,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
             {activeTab === "members" && (
               <div className="space-y-3">
                 {participants.length === 0 ? (
-                  <div className="text-center py-12 text-neutral-400">
+                  <div className="text-center py-12 text-zinc-400">
                     <Users className="w-12 h-12 mx-auto mb-3 opacity-50" />
                     <p>No members yet</p>
                   </div>
@@ -346,7 +346,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                   participants.map((participant) => (
                     <div
                       key={participant.socketId}
-                      className="flex items-center justify-between p-4 bg-neutral-800/50 rounded-xl border border-neutral-700/50 hover:border-neutral-600 transition-all"
+                      className="flex items-center justify-between p-4 bg-zinc-800/50 rounded-xl border border-zinc-700 hover:border-zinc-600 transition-all"
                     >
                       <div className="flex items-center gap-3">
                         <div
@@ -375,7 +375,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-xs text-neutral-500">
+                          <div className="flex items-center gap-2 text-xs text-zinc-500">
                             <span>
                               Joined{" "}
                               {new Date(
@@ -394,7 +394,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
 
                       {isCreator && !participant.isCreator && (
                         <button
-                          className="p-2 hover:bg-red-500/20 rounded-lg text-neutral-400 hover:text-red-400 transition-all"
+                          className="p-2 hover:bg-red-500/20 rounded-lg text-zinc-400 hover:text-red-400 transition-all"
                           title="Remove member"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -410,17 +410,17 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex-1">
-                    <p className="text-sm text-neutral-400 mb-2">
+                    <p className="text-sm text-zinc-400 mb-2">
                       Storage Usage
                     </p>
                     <div className="flex items-center gap-3">
-                      <div className="flex-1 h-2.5 bg-neutral-700 rounded-full overflow-hidden">
+                      <div className="flex-1 h-2.5 bg-zinc-700 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all duration-500"
                           style={{ width: `${Math.min(storagePercent, 100)}%` }}
                         ></div>
                       </div>
-                      <span className="text-xs text-neutral-400 whitespace-nowrap min-w-[120px] text-right">
+                      <span className="text-xs text-zinc-400 whitespace-nowrap min-w-[120px] text-right">
                         {formatBytes(room.currentStorageBytes)} /{" "}
                         {formatBytes(room.maxStorageBytes)}
                       </span>
@@ -430,7 +430,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                   {(!room.creatorOnlyUpload || isCreator) && (
                     <button
                       onClick={() => setShowUploadModal(true)}
-                      className="ml-4 px-4 py-2 bg-green-600/80 hover:bg-green-600 text-white font-semibold rounded-lg transition-all flex items-center gap-2 shadow-lg hover:shadow-green-500/25"
+                      className="ml-4 bg-green-500/10 hover:bg-green-500/20 border border-green-400/50 text-green-400 font-bold py-2 px-4 rounded-lg transition-all duration-200 flex items-center gap-2"
                     >
                       <Upload className="w-4 h-4" />
                       Upload
@@ -453,8 +453,8 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                 )}
 
                 {files.length === 0 ? (
-                  <div className="text-center py-16 text-neutral-400">
-                    <div className="w-20 h-20 mx-auto mb-4 bg-neutral-800 rounded-2xl flex items-center justify-center">
+                  <div className="text-center py-16 text-zinc-400">
+                    <div className="w-20 h-20 mx-auto mb-4 bg-zinc-800 rounded-2xl flex items-center justify-center">
                       <FileText className="w-10 h-10 opacity-50" />
                     </div>
                     <p className="text-lg font-medium mb-2">
@@ -491,19 +491,19 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
 
             {activeTab === "settings" && (
               <div className="space-y-4">
-                <div className="p-4 bg-neutral-800/50 rounded-xl border border-neutral-700/50">
+                <div className="p-4 bg-zinc-800/50 rounded-xl border border-zinc-700">
                   <h3 className="font-semibold text-white mb-3">
                     Room Information
                   </h3>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-neutral-400">Visibility</span>
+                      <span className="text-zinc-400">Visibility</span>
                       <span className="text-white font-medium">
                         {room.visibility}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-neutral-400">
+                      <span className="text-zinc-400">
                         Creator Only Upload
                       </span>
                       <span className="text-white font-medium">
@@ -511,13 +511,13 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-neutral-400">Created At</span>
+                      <span className="text-zinc-400">Created At</span>
                       <span className="text-white font-medium">
                         {new Date(room.createdAt).toLocaleString()}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-neutral-400">Expires At</span>
+                      <span className="text-zinc-400">Expires At</span>
                       <span className="text-white font-medium">
                         {new Date(room.expiresAt).toLocaleString()}
                       </span>
@@ -533,7 +533,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                       setCopiedLink(true);
                       setTimeout(() => setCopiedLink(false), 2000);
                     }}
-                    className="w-full px-4 py-3 bg-neutral-800/50 hover:bg-neutral-700 border border-neutral-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+                    className="w-full px-4 py-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
                   >
                     {copiedLink ? (
                       <>

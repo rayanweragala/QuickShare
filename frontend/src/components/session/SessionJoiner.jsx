@@ -3,17 +3,12 @@ import { useSession } from "../../hooks/useSession";
 import { useWebRTC } from "../../hooks/useWebRTC";
 import { socketService } from "../../services/socket.service";
 import { logger } from "../../utils/logger";
-import { Camera, Download, Check, Loader2, ArrowLeft, QrCode } from "lucide-react";
-import { QRScanner } from "./QRScanner";
+import { Download, Check, ArrowLeft, Clock, Shield, Wifi } from "lucide-react";
 
-import {
-  StatusBadge,
-  ErrorMessage,
-} from "../common";
+import { StatusBadge, ErrorMessage } from "../common";
 import { FileTransferView } from "../transfer/FileTransferView";
 
-export const SessionJoiner = ({ onSessionEnd }) => {
-  const [code, setCode] = useState("");
+export const SessionJoiner = ({ onSessionEnd, initialCode = "" }) => {
   const {
     session,
     isLoading,
@@ -31,7 +26,20 @@ export const SessionJoiner = ({ onSessionEnd }) => {
     closeConnection,
   } = useWebRTC(false);
   const [showTransfer, setShowTransfer] = useState(false);
-  const [showScanner, setShowScanner] = useState(false);
+
+  useEffect(() => {
+    const initSession = async () => {
+      if (initialCode && initialCode.length === 6 && !session && !isLoading) {
+        logger.debug("Auto-joining session with code:", initialCode);
+        try {
+          await joinSession(initialCode);
+        } catch (err) {
+          logger.error("Auto-join session error:", err);
+        }
+      }
+    };
+    initSession();
+  }, [initialCode]);
 
   useEffect(() => {
     if (isConnected && connectionState === "new") {
@@ -70,29 +78,12 @@ export const SessionJoiner = ({ onSessionEnd }) => {
     };
   }, [onSessionEnd, closeConnection]);
 
-  const handleCodeChange = (e) => {
-    const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-    setCode(value);
-  };
-
-  const handleJoinSession = async (e) => {
-    e.preventDefault();
-    if (!code.trim()) return;
-
-    try {
-      await joinSession(code);
-    } catch (err) {
-      logger.error("Join session error:", err);
-    }
-  };
-
   const handleEndSession = async () => {
     try {
       closeConnection();
       socketService.disconnect();
       await endSession();
       setShowTransfer(false);
-      setCode("");
       onSessionEnd?.();
     } catch (err) {
       logger.error("Error ending session:", err);
@@ -100,108 +91,47 @@ export const SessionJoiner = ({ onSessionEnd }) => {
     }
   };
 
-  if (!session) {
+  if (isLoading || !session) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="w-full bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 rounded-2xl border border-neutral-700 shadow-2xl overflow-hidden">
-            <div className="relative bg-gradient-to-r from-emerald-900/40 to-green-900/40 border-b border-emerald-500/30 px-6 py-5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-                  <Download className="w-5 h-5 text-emerald-400" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-white">
-                    Receive Files
-                  </h1>
-                  <p className="text-sm text-neutral-400">
-                    Enter a session code to join
-                  </p>
-                </div>
+      <div className="min-h-screen bg-black">
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-green-500/5 rounded-full blur-3xl animate-pulse" />
+          <div
+            className="absolute bottom-0 right-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl animate-pulse"
+            style={{ animationDelay: "1s" }}
+          />
+        </div>
+
+        <div className="relative z-10 min-h-screen">
+          <div className="border-b border-green-500/10">
+            <div className="max-w-4xl mx-auto px-6 py-6">
+              <button
+                onClick={onSessionEnd}
+                className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Home
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="relative mb-8">
+              <div className="w-20 h-20 rounded-full border-4 border-green-500/20 border-t-green-500 animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Wifi className="w-8 h-8 text-green-400" />
               </div>
             </div>
+            <h2 className="text-2xl font-bold text-white mb-2">
+              Joining Session
+            </h2>
+            <p className="text-zinc-400">Connecting to sender securely...</p>
 
-            <form onSubmit={handleJoinSession} className="p-6 space-y-5">
-              {error && (
-                <ErrorMessage
-                  message={error}
-                  onDismiss={clearError}
-                  className="mb-4"
-                />
-              )}
-
-              {webrtcError && (
-                <ErrorMessage
-                  message={webrtcError}
-                  onDismiss={clearError}
-                  className="mb-4"
-                />
-              )}
-
-              <div>
-                <label className="flex items-center gap-2 text-sm font-semibold text-neutral-300 mb-2">
-                  <QrCode className="w-4 h-4 text-emerald-400" />
-                  Session Code
-                </label>
-                <input
-                  type="text"
-                  value={code}
-                  onChange={handleCodeChange}
-                  placeholder="000000"
-                  maxLength={6}
-                  autoFocus
-                  className="w-full px-4 py-4 bg-neutral-800/50 border border-neutral-700 text-white text-center text-3xl font-mono tracking-widest placeholder-neutral-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
-                />
-                <p className="text-xs text-neutral-500 mt-2 text-center">
-                  Enter the 6-digit code shared with you
-                </p>
+            {error && (
+              <div className="mt-6 max-w-md">
+                <ErrorMessage message={error} onDismiss={clearError} />
               </div>
-
-              <button
-                type="button"
-                onClick={() => setShowScanner(true)}
-                className="w-full px-6 py-3 bg-neutral-800/50 border-2 border-neutral-700 text-neutral-300 font-semibold rounded-lg hover:bg-neutral-800 hover:border-neutral-600 hover:text-white transition-all flex items-center justify-center gap-2"
-              >
-                <Camera className="w-5 h-5" />
-                Scan QR Code
-              </button>
-
-              <button
-                type="submit"
-                disabled={isLoading || code.length < 6}
-                className="w-full px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-semibold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:scale-105"
-              >
-                {isLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Joining Session...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-5 h-5" />
-                    Join Session
-                  </>
-                )}
-              </button>
-
-              {showScanner && (
-                <QRScanner
-                  onScanSuccess={(sessionId) => {
-                    setCode(sessionId);
-                    setShowScanner(false);
-                    joinSession(sessionId);
-                  }}
-                  onClose={() => setShowScanner(false)}
-                />
-              )}
-
-              <div className="relative overflow-hidden bg-gradient-to-br from-neutral-800/50 to-neutral-900/50 border border-neutral-700/50 rounded-xl p-4">
-                <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 rounded-full blur-2xl" />
-                <p className="relative text-sm text-neutral-400 text-center">
-                  Files are received directly from sender. Nothing stored on servers.
-                </p>
-              </div>
-            </form>
+            )}
           </div>
         </div>
       </div>
@@ -209,114 +139,190 @@ export const SessionJoiner = ({ onSessionEnd }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 p-4">
-      <div className="w-full max-w-6xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 pt-8">
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2 flex items-center gap-3">
-              Receive Session Active
-              <span className="text-xs font-semibold bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/30">
-                LIVE
-              </span>
-            </h1>
-            <div className="flex items-center gap-3">
-              <StatusBadge status={connectionState} />
-              {isChannelReady && (
-                <span className="text-sm text-emerald-400 font-medium flex items-center gap-1">
-                  <Check className="w-4 h-4" />
-                  Ready to receive files
-                </span>
-              )}
-            </div>
-          </div>
-          <button
-            onClick={handleEndSession}
-            className="px-6 py-3 bg-neutral-800/50 border-2 border-neutral-700 text-neutral-300 font-semibold rounded-lg hover:bg-neutral-800 hover:border-neutral-600 hover:text-white transition-all flex items-center justify-center gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Leave Session
-          </button>
-        </div>
+    <div className="min-h-screen bg-black">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-green-500/5 rounded-full blur-3xl animate-pulse" />
+        <div
+          className="absolute bottom-0 right-1/4 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl animate-pulse"
+          style={{ animationDelay: "1s" }}
+        />
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-green-500/3 rounded-full blur-3xl animate-pulse"
+          style={{ animationDelay: "0.5s" }}
+        />
+      </div>
 
-        {error && (
-          <ErrorMessage
-            message={error}
-            onDismiss={clearError}
-            className="mb-6"
-          />
-        )}
+      <div className="relative z-10 min-h-screen">
+        {/* Header */}
+        <div className="border-b border-green-500/10 bg-black/50 backdrop-blur-xl">
+          <div className="max-w-7xl mx-auto px-6 py-6">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={handleEndSession}
+                className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Home
+              </button>
 
-        {webrtcError && (
-          <ErrorMessage
-            message={webrtcError}
-            onDismiss={clearError}
-            className="mb-6"
-          />
-        )}
-
-        {!showTransfer && session && (
-          <div className="animate-fade-in mb-8">
-            <div className="group relative overflow-hidden bg-gradient-to-br from-neutral-800/50 to-neutral-900/50 hover:from-neutral-800/70 hover:to-neutral-900/70 border border-neutral-700/50 hover:border-emerald-500/30 rounded-2xl p-8 sm:p-10 transition-all duration-300">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl group-hover:bg-emerald-500/10 transition-all" />
-              
-              <div className="relative">
-                <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                  <span className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></span>
-                  You're Connected
-                </h2>
-                
-                <div className="bg-neutral-900/50 rounded-2xl p-6 mb-6 border border-neutral-700">
-                  <p className="text-neutral-400 text-sm mb-3">Session Code</p>
-                  <p className="text-3xl font-mono font-bold text-emerald-400 tracking-wider">
-                    {session.sessionId}
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
-                    <p className="text-neutral-300 text-sm">
-                      Connected to sender securely
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
-                    <p className="text-neutral-300 text-sm">
-                      Waiting for file transfer to begin
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
-                    <p className="text-neutral-300 text-sm">
-                      Files will download directly to your device
-                    </p>
-                  </div>
-                </div>
+              <div className="flex items-center gap-3">
+                <StatusBadge status={connectionState} />
+                {isChannelReady && (
+                  <span className="text-sm text-green-400 font-medium flex items-center gap-1">
+                    <Check className="w-4 h-4" />
+                    Ready
+                  </span>
+                )}
               </div>
             </div>
           </div>
-        )}
+        </div>
 
-        {!isChannelReady && !showTransfer && session && (
-          <div className="relative overflow-hidden bg-gradient-to-br from-neutral-800/50 to-neutral-900/50 border border-neutral-700/50 rounded-2xl p-12 text-center animate-fade-in">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-neutral-700/10 rounded-full blur-3xl" />
-            <div className="relative flex flex-col items-center justify-center">
-              <Loader2 className="w-16 h-16 text-neutral-600 animate-spin mb-4" />
-              <p className="mt-6 text-lg font-medium text-white">
-                Establishing connection...
-              </p>
-              <p className="mt-2 text-sm text-neutral-400">
-                Connecting to sender securely
-              </p>
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          {(error || webrtcError) && (
+            <div className="mb-6">
+              {error && <ErrorMessage message={error} onDismiss={clearError} />}
+              {webrtcError && (
+                <ErrorMessage message={webrtcError} onDismiss={clearError} />
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {showTransfer && (
-          <div className="animate-fade-in">
-            <FileTransferView role="receiver" />
-          </div>
-        )}
+          {!showTransfer && (
+            <>
+              {/* Status Banner */}
+              <div className="text-center mb-8">
+                <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-green-500/10 border border-green-500/30 mb-4">
+                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-green-400 font-medium">
+                    Session Active
+                  </span>
+                </div>
+                <h1 className="text-4xl font-bold text-white mb-2">
+                  Connected to Sender
+                </h1>
+                <p className="text-zinc-400">
+                  Waiting for file transfer to begin
+                </p>
+              </div>
+
+              {/* Session Info Card */}
+              <div className="max-w-3xl mx-auto mb-8">
+                <div className="relative group">
+                  <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 to-emerald-600/20 rounded-2xl blur-2xl opacity-50" />
+                  <div className="relative bg-zinc-900/80 backdrop-blur-xl border border-zinc-800 rounded-2xl p-8">
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 rounded-xl bg-green-500/10">
+                          <Download className="w-6 h-6 text-green-400" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold text-white">
+                            Receive Session
+                          </h3>
+                          <p className="text-zinc-400">
+                            Connected and ready to receive
+                          </p>
+                        </div>
+                      </div>
+                      <span className="px-3 py-1 border border-green-500/50 text-green-400 bg-green-500/10 rounded-full text-sm font-medium flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Active
+                      </span>
+                    </div>
+
+                    {/* Session Code Display */}
+                    <div className="bg-gradient-to-br from-green-500/10 to-emerald-600/10 border border-green-500/30 rounded-2xl p-6 mb-6">
+                      <p className="text-zinc-400 text-sm mb-2 text-center">
+                        Session Code
+                      </p>
+                      <div className="flex items-center justify-center gap-2">
+                        {session.sessionId.split("").map((char, index) => (
+                          <div
+                            key={index}
+                            className="w-10 h-14 bg-zinc-900/80 backdrop-blur-sm border border-zinc-700 rounded-lg flex items-center justify-center"
+                          >
+                            <span className="text-2xl font-bold text-green-400">
+                              {char}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Session Info */}
+                    <div className="grid grid-cols-3 gap-4 p-4 bg-zinc-800/50 rounded-xl border border-zinc-700 mb-6">
+                      <div className="text-center">
+                        <p className="text-zinc-400 text-sm mb-1">
+                          Transfer Speed
+                        </p>
+                        <p className="text-white font-medium">P2P Direct</p>
+                      </div>
+                      <div className="text-center border-x border-zinc-700">
+                        <p className="text-zinc-400 text-sm mb-1">Encryption</p>
+                        <p className="text-green-400 font-medium">End-to-End</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-zinc-400 text-sm mb-1">Privacy</p>
+                        <p className="text-white font-medium flex items-center justify-center gap-1">
+                          <Shield className="w-3 h-3 text-green-400" />
+                          Secure
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Status Messages */}
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <Check className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                        <p className="text-zinc-300 text-sm">
+                          Connected to sender securely
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <Check className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                        <p className="text-zinc-300 text-sm">
+                          Waiting for sender to select files
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <Check className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                        <p className="text-zinc-300 text-sm">
+                          Files will download directly to your device
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Waiting State */}
+              {!isChannelReady && (
+                <div className="max-w-3xl mx-auto">
+                  <div className="relative group">
+                    <div className="absolute inset-0 bg-gradient-to-br from-zinc-800/50 to-zinc-900/50 rounded-2xl blur-xl opacity-50" />
+                    <div className="relative bg-zinc-900/50 border border-zinc-800 border-dashed rounded-2xl p-12 text-center">
+                      <div className="flex flex-col items-center justify-center">
+                        <div className="w-16 h-16 border-4 border-zinc-800 border-t-green-500 rounded-full animate-spin mb-6" />
+                        <p className="text-lg font-medium text-white mb-2">
+                          Establishing secure connection...
+                        </p>
+                        <p className="text-sm text-zinc-400">
+                          Setting up direct peer-to-peer link
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {showTransfer && (
+            <FileTransferView role="receiver" onEndSession={handleEndSession} />
+          )}
+        </div>
       </div>
     </div>
   );
