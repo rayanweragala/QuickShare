@@ -303,7 +303,7 @@ function App() {
 
         <footer className="text-center space-y-3">
           <a
-            href="https://github.com/YOUR_USERNAME"
+            href="https://github.com/rayanweragala/LocalShare"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-neutral-800 hover:bg-neutral-700 transition-all duration-200 mb-2"
