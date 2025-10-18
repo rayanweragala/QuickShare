@@ -24,6 +24,9 @@ public class RoomResponse {
     @Schema(description = "Display name of the room")
     private String roomName;
 
+    @Schema(description = "Room icon")
+    private String roomIcon;
+
     @Schema(description = "Animal name representing the creator (used as anonymous nickname)")
     private String creatorAnimalName;
 

@@ -1,4 +1,4 @@
-import { Upload, Share2, Users, Clock, Lock, Globe, X, Plus, Copy, Check, Search, Download, Trash2, FileIcon, QrCode } from 'lucide-react';
+import { X } from 'lucide-react';
 
 export const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
   if (!isOpen) return null;
