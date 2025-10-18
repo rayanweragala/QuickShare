@@ -1,11 +1,17 @@
-package com.localshare.backend.util;
+package com.localshare.backend.component;
 
 import com.localshare.backend.repository.SessionRepository;
+import com.localshare.backend.util.LoggerUtil;
+import lombok.AllArgsConstructor;
+import org.springframework.stereotype.Component;
 
 import java.util.Random;
 
+@Component
+@AllArgsConstructor
 public class StringUtilities {
-    private SessionRepository sessionRepository;
+
+    private final SessionRepository sessionRepository;
     private static final String SESSION_ID_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static final int SESSION_ID_LENGTH = 6;
     private static final Random random = new Random();
