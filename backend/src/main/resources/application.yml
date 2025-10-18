@@ -24,9 +24,9 @@ spring:
     name: QuickShare-Backend
 
   datasource:
-    url: ${DATABASE_URL}
-    username: ${DATABASE_USER}
-    password: ${DATABASE_PASSWORD}
+   url: ${DATABASE_URL}
+   username: ${DATABASE_USER}
+   password: ${DATABASE_PASSWORD}
 
     hikari:
       maximum-pool-size: 5
@@ -65,11 +65,11 @@ spring:
     static-path-pattern: /**
 
 r2:
-  account-id: ${R2_ACCOUNT_ID}
-  access-key-id: ${R2_ACCESS_KEY_ID}
-  secret-access-key: ${R2_SECRET_ACCESS_KEY}
-  bucket-name: ${R2_BUCKET_NAME}
-  endpoint: ${R2_ENDPOINT}
+ account-id: ${R2_ACCOUNT_ID}
+ access-key-id: ${R2_ACCESS_KEY_ID}
+ secret-access-key: ${R2_SECRET_ACCESS_KEY}
+ bucket-name: ${R2_BUCKET_NAME}
+ endpoint: ${R2_ENDPOINT}
 
 file:
   max-size: 1073741824
