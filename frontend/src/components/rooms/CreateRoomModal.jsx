@@ -1,39 +1,54 @@
 import { useState } from "react";
-import { useMutation } from '@tanstack/react-query';
-import { roomAPI } from "../../api/hooks/useRooms"
-import { Plus, Lock, Globe, Clock, Users, X } from 'lucide-react';
+import { useMutation } from "@tanstack/react-query";
+import { roomAPI } from "../../api/hooks/useRooms";
+import {
+  Plus,
+  Lock,
+  Globe,
+  Clock,
+  Users,
+  X,
+  ChevronDown,
+  Check,
+  TrendingUp, 
+} from "lucide-react";
+import { Listbox } from "@headlessui/react";
 import { ErrorMessage } from "../common";
 import { getOrCreateUserId } from "../../utils/userManager";
 
 const CreateRoomModal = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
-    customRoomName: '',
-    visibility: 'PUBLIC',
+    customRoomName: "",
+    visibility: "PUBLIC",
     expirationHours: 24,
     creatorOnlyUpload: false,
     maxParticipants: 10,
+    isFeatured: false,
   });
 
   const [userId] = useState(getOrCreateUserId());
 
   const createMutation = useMutation({
-    mutationFn: (data) => roomAPI.createRoom({ ...data, userId }), 
+    mutationFn: (data) => roomAPI.createRoom({ ...data, userId }),
     onSuccess: (data) => {
       onSuccess(data);
       onClose();
       setFormData({
-        customRoomName: '',
-        visibility: 'PUBLIC',
+        customRoomName: "",
+        visibility: "PUBLIC",
         expirationHours: 24,
         creatorOnlyUpload: false,
         maxParticipants: 10,
+        isFeatured: false,
       });
     },
   });
 
+  // ✅ UPDATED: Simplified handleSubmit logic
   const handleSubmit = (e) => {
     e.preventDefault();
-    createMutation.mutate(formData);
+    const payload = { ...formData };
+    createMutation.mutate(payload);
   };
 
   const handleDismissError = () => {
@@ -41,6 +56,11 @@ const CreateRoomModal = ({ isOpen, onClose, onSuccess }) => {
   };
 
   if (!isOpen) return null;
+
+  const visibilityOptions = [
+    { value: "PUBLIC", label: "Public", icon: Globe },
+    { value: "PRIVATE", label: "Private", icon: Lock },
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
@@ -52,8 +72,12 @@ const CreateRoomModal = ({ isOpen, onClose, onSuccess }) => {
                 <Plus className="w-5 h-5 text-green-400" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white">Create New Room</h2>
-                <p className="text-sm text-neutral-400">Set up your sharing space</p>
+                <h2 className="text-xl font-bold text-white">
+                  Create New Room
+                </h2>
+                <p className="text-sm text-neutral-400">
+                  Set up your sharing space
+                </p>
               </div>
             </div>
             <button
@@ -74,7 +98,9 @@ const CreateRoomModal = ({ isOpen, onClose, onSuccess }) => {
             <input
               type="text"
               value={formData.customRoomName}
-              onChange={(e) => setFormData({ ...formData, customRoomName: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, customRoomName: e.target.value })
+              }
               placeholder="Auto-generated if left empty"
               className="w-full px-4 py-3 bg-neutral-800/50 border border-neutral-700 text-white placeholder-neutral-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all"
             />
@@ -82,18 +108,68 @@ const CreateRoomModal = ({ isOpen, onClose, onSuccess }) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="flex items-center gap-2 text-sm font-semibold text-neutral-300 mb-2">
-                <Lock className="w-4 h-4 text-green-400" />
-                Visibility
-              </label>
-              <select
+              <Listbox
                 value={formData.visibility}
-                onChange={(e) => setFormData({ ...formData, visibility: e.target.value })}
-                className="w-full px-4 py-3 bg-neutral-800/50 border border-neutral-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all appearance-none cursor-pointer"
+                onChange={(value) =>
+                  setFormData({ ...formData, visibility: value })
+                }
               >
-                <option value="PUBLIC">Public</option>
-                <option value="PRIVATE">Private</option>
-              </select>
+                <Listbox.Label className="flex items-center gap-2 text-sm font-semibold text-neutral-300 mb-2">
+                  <Lock className="w-4 h-4 text-green-400" />
+                  Visibility
+                </Listbox.Label>
+                <div className="relative">
+                  <Listbox.Button className="relative w-full cursor-pointer rounded-lg bg-neutral-800/50 py-3 pl-4 pr-10 text-left border border-neutral-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500/50 transition-all">
+                    <span className="block truncate text-white">
+                      {
+                        visibilityOptions.find(
+                          (opt) => opt.value === formData.visibility
+                        )?.label
+                      }
+                    </span>
+                    <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                      <ChevronDown
+                        className="h-5 w-5 text-neutral-400"
+                        aria-hidden="true"
+                      />
+                    </span>
+                  </Listbox.Button>
+                  <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-neutral-800 py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm z-10 border border-neutral-700">
+                    {visibilityOptions.map((option) => (
+                      <Listbox.Option
+                        key={option.value}
+                        className={({ active }) =>
+                          `relative cursor-pointer select-none py-2 pl-10 pr-4 ${
+                            active
+                              ? "bg-green-500/20 text-green-300"
+                              : "text-neutral-300"
+                          }`
+                        }
+                        value={option.value}
+                      >
+                        {({ selected }) => (
+                          <>
+                            <span
+                              className={`block truncate ${
+                                selected
+                                  ? "font-medium text-white"
+                                  : "font-normal"
+                              }`}
+                            >
+                              {option.label}
+                            </span>
+                            {selected && (
+                              <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-green-400">
+                                <Check className="h-5 w-5" aria-hidden="true" />
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </Listbox.Option>
+                    ))}
+                  </Listbox.Options>
+                </div>
+              </Listbox>
             </div>
 
             <div>
@@ -104,7 +180,12 @@ const CreateRoomModal = ({ isOpen, onClose, onSuccess }) => {
               <input
                 type="number"
                 value={formData.expirationHours}
-                onChange={(e) => setFormData({ ...formData, expirationHours: parseInt(e.target.value) })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    expirationHours: parseInt(e.target.value),
+                  })
+                }
                 min="1"
                 max="168"
                 className="w-full px-4 py-3 bg-neutral-800/50 border border-neutral-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all"
@@ -120,11 +201,43 @@ const CreateRoomModal = ({ isOpen, onClose, onSuccess }) => {
             <input
               type="number"
               value={formData.maxParticipants}
-              onChange={(e) => setFormData({ ...formData, maxParticipants: parseInt(e.target.value) })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  maxParticipants: parseInt(e.target.value),
+                })
+              }
               min="2"
               max="100"
               className="w-full px-4 py-3 bg-neutral-800/50 border border-neutral-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all"
             />
+          </div>
+
+          {/* ✅ UPDATED: isFeatured checkbox is now always visible */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-semibold text-neutral-300 mb-2">
+              <TrendingUp className="w-4 h-4 text-green-400" />
+              Feature Room
+            </label>
+            <div className="relative overflow-hidden bg-neutral-800/30 border border-neutral-700/50 rounded-xl p-4">
+                <div className="relative flex items-center gap-3">
+                    <input
+                        type="checkbox"
+                        id="isFeatured"
+                        checked={formData.isFeatured}
+                        onChange={(e) =>
+                            setFormData({ ...formData, isFeatured: e.target.checked })
+                        }
+                        className="w-5 h-5 bg-neutral-700 border-2 border-neutral-600 rounded text-green-500 focus:ring-2 focus:ring-green-500/50 focus:ring-offset-0 cursor-pointer"
+                    />
+                    <label
+                        htmlFor="isFeatured"
+                        className="flex-1 text-sm font-medium text-neutral-300 cursor-pointer select-none"
+                    >
+                        Feature this room on the main page for easy access
+                    </label>
+                </div>
+            </div>
           </div>
 
           <div className="relative overflow-hidden bg-gradient-to-br from-neutral-800/50 to-neutral-900/50 border border-neutral-700/50 rounded-xl p-4">
@@ -134,10 +247,18 @@ const CreateRoomModal = ({ isOpen, onClose, onSuccess }) => {
                 type="checkbox"
                 id="creatorOnly"
                 checked={formData.creatorOnlyUpload}
-                onChange={(e) => setFormData({ ...formData, creatorOnlyUpload: e.target.checked })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    creatorOnlyUpload: e.target.checked,
+                  })
+                }
                 className="w-5 h-5 bg-neutral-700 border-2 border-neutral-600 rounded text-green-500 focus:ring-2 focus:ring-green-500/50 focus:ring-offset-0 cursor-pointer transition-all"
               />
-              <label htmlFor="creatorOnly" className="flex-1 text-sm font-medium text-neutral-300 cursor-pointer select-none">
+              <label
+                htmlFor="creatorOnly"
+                className="flex-1 text-sm font-medium text-neutral-300 cursor-pointer select-none"
+              >
                 Only I can upload files (viewers can only download)
               </label>
             </div>
@@ -145,7 +266,10 @@ const CreateRoomModal = ({ isOpen, onClose, onSuccess }) => {
 
           {createMutation.isError && (
             <ErrorMessage
-              message={createMutation.error?.message || "Failed to create room. Please try again."}
+              message={
+                createMutation.error?.message ||
+                "Failed to create room. Please try again."
+              }
               onDismiss={handleDismissError}
               className="mb-4"
             />

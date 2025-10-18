@@ -3,7 +3,7 @@ import { roomAPI } from "../../api/hooks/useRooms";
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
 import { ErrorMessage } from "../common";
 import { getOrCreateUserId, generateSessionId } from "../../utils/userManager";
-import { useRoomWebSocket } from "../../api/hooks/useRoomWebSocket";
+import { useRoomSocket } from "../../api/hooks/useRoomSocket";
 import FileCard from "../common/FileCard";
 import {
   X,
@@ -70,7 +70,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
     };
   }, [isOpen, roomCode, joinMutation]);
 
-  const { isConnected: wsConnected } = useRoomWebSocket(
+  const { isConnected: wsConnected } = useRoomSocket(
     roomCode,
     joinMutation.data?.room?.id,
     isOpen && !!joinMutation.data?.room?.id
@@ -187,7 +187,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in overflow-y-auto">
         <div className="w-full max-w-4xl bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 rounded-2xl border border-neutral-700 shadow-2xl my-8">
           <div className="relative bg-gradient-to-r from-green-900/40 via-emerald-900/40 to-green-900/40 border-b border-green-500/30 px-6 py-5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-green-500/20 rounded-xl flex items-center justify-center text-3xl">
                   {room.roomIcon}
@@ -229,7 +229,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between w-full sm:w-auto sm:justify-start sm:gap-3">
                 <div className="flex items-center gap-2 px-3 py-2 bg-neutral-800/50 rounded-lg">
                   <span className="text-xs text-neutral-400">Code:</span>
                   <span className="text-sm font-mono font-bold text-green-400">

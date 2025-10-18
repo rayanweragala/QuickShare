@@ -30,6 +30,7 @@ public class RoomMapper {
                 .totalVisitors(room.getTotalVisitors())
                 .isExpired(room.isExpired())
                 .isFull(room.isFull())
+                .isFeatured(room.getIsFeatured())
                 .build();
     }
 
