@@ -9,8 +9,6 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ||
   (() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname;
-    // const port = import.meta.env.PROD ? '9092' : '9092';
-    // return `${protocol}//${host}:${port}`;
      return `${protocol}//${host}`;
   })();
 class SocketService {
