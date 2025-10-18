@@ -9,8 +9,9 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ||
   (() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.hostname;
-    const port = import.meta.env.PROD ? '9092' : '9092';
-    return `${protocol}//${host}:${port}`;
+    // const port = import.meta.env.PROD ? '9092' : '9092';
+    // return `${protocol}//${host}:${port}`;
+     return `${protocol}//${host}`;
   })();
 class SocketService {
   constructor() {
@@ -34,6 +35,7 @@ class SocketService {
         logger.info('Connecting to SocketIO server...', { sessionId, role });
 
         this.socket = io(SOCKET_URL, {
+          path: '/socket.io',
           query: {
             sessionId,
             role,
