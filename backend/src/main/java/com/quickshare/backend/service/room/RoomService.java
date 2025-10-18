@@ -48,7 +48,9 @@ public class RoomService {
 
         int expirationHours = request.getExpirationHours() != null ? request.getExpirationHours() : 24;
 
-        String roomName = request.getCustomRoomName() != null ? request.getCustomRoomName() : animalIdentity.getName() + "'s Room";
+        String roomName = (request.getCustomRoomName() != null && !request.getCustomRoomName().isBlank())
+                ? request.getCustomRoomName()
+                : animalIdentity.getName() + "'s Room";
 
         Room room = Room.builder()
                 .roomCode(roomCode)
@@ -184,6 +186,7 @@ public class RoomService {
                 .id(room.getId())
                 .roomCode(room.getRoomCode())
                 .roomName(room.getRoomName())
+                .roomIcon(room.getRoomIcon())
                 .creatorAnimalName(room.getCreatorAnimalName())
                 .visibility(room.getRoomVisibility())
                 .status(room.getStatus())

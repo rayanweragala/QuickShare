@@ -3,14 +3,11 @@ import { useSession } from "../../hooks/useSession";
 import { useWebRTC } from "../../hooks/useWebRTC";
 import { socketService } from "../../services/socket.service";
 import { logger } from "../../utils/logger";
-import { Camera } from "lucide-react";
+import { Camera, Download, Check, Loader2, ArrowLeft, QrCode } from "lucide-react";
 import { QRScanner } from "./QRScanner";
 
 import {
-  Button,
-  Card,
   StatusBadge,
-  LoadingSpinner,
   ErrorMessage,
 } from "../common";
 import { FileTransferView } from "../transfer/FileTransferView";
@@ -85,18 +82,15 @@ export const SessionJoiner = ({ onSessionEnd }) => {
     try {
       await joinSession(code);
     } catch (err) {
-      console.error("Join session error:", err);
+      logger.error("Join session error:", err);
     }
   };
 
   const handleEndSession = async () => {
     try {
       closeConnection();
-
       socketService.disconnect();
-
       await endSession();
-
       setShowTransfer(false);
       setCode("");
       onSessionEnd?.();
@@ -110,52 +104,43 @@ export const SessionJoiner = ({ onSessionEnd }) => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <Card
-            variant="dark"
-            padding="lg"
-            className="animate-fade-in border-neutral-700"
-          >
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/10 rounded-2xl mb-4 border border-green-500/20">
-                <svg
-                  className="w-8 h-8 text-green-500"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                </svg>
+          <div className="w-full bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 rounded-2xl border border-neutral-700 shadow-2xl overflow-hidden">
+            <div className="relative bg-gradient-to-r from-emerald-900/40 to-green-900/40 border-b border-emerald-500/30 px-6 py-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
+                  <Download className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-white">
+                    Receive Files
+                  </h1>
+                  <p className="text-sm text-neutral-400">
+                    Enter a session code to join
+                  </p>
+                </div>
               </div>
-              <h1 className="text-4xl font-bold text-white mb-2">
-                Local<span className="text-green-500">Share</span>
-              </h1>
-              <p className="text-neutral-400">
-                Enter a session code to receive files
-              </p>
             </div>
 
-            {error && (
-              <ErrorMessage
-                message={error}
-                onDismiss={clearError}
-                className="mb-6"
-              />
-            )}
+            <form onSubmit={handleJoinSession} className="p-6 space-y-5">
+              {error && (
+                <ErrorMessage
+                  message={error}
+                  onDismiss={clearError}
+                  className="mb-4"
+                />
+              )}
 
-            {webrtcError && (
-              <ErrorMessage
-                message={webrtcError}
-                onDismiss={clearError}
-                className="mb-6"
-              />
-            )}
+              {webrtcError && (
+                <ErrorMessage
+                  message={webrtcError}
+                  onDismiss={clearError}
+                  className="mb-4"
+                />
+              )}
 
-            <form onSubmit={handleJoinSession}>
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-neutral-300 mb-3">
+              <div>
+                <label className="flex items-center gap-2 text-sm font-semibold text-neutral-300 mb-2">
+                  <QrCode className="w-4 h-4 text-emerald-400" />
                   Session Code
                 </label>
                 <input
@@ -165,34 +150,39 @@ export const SessionJoiner = ({ onSessionEnd }) => {
                   placeholder="000000"
                   maxLength={6}
                   autoFocus
-                  className="input input-dark input-lg text-center text-3xl font-mono tracking-widest w-full"
+                  className="w-full px-4 py-4 bg-neutral-800/50 border border-neutral-700 text-white text-center text-3xl font-mono tracking-widest placeholder-neutral-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition-all"
                 />
                 <p className="text-xs text-neutral-500 mt-2 text-center">
                   Enter the 6-digit code shared with you
                 </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="lg"
-                  fullWidth
-                  onClick={() => setShowScanner(true)}
-                  className="mt-4"
-                >
-                  <Camera className="w-5 h-5" />
-                  Scan QR Code
-                </Button>
               </div>
 
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                fullWidth
-                isLoading={isLoading}
-                disabled={code.length < 6}
+              <button
+                type="button"
+                onClick={() => setShowScanner(true)}
+                className="w-full px-6 py-3 bg-neutral-800/50 border-2 border-neutral-700 text-neutral-300 font-semibold rounded-lg hover:bg-neutral-800 hover:border-neutral-600 hover:text-white transition-all flex items-center justify-center gap-2"
               >
-                Join Session
-              </Button>
+                <Camera className="w-5 h-5" />
+                Scan QR Code
+              </button>
+
+              <button
+                type="submit"
+                disabled={isLoading || code.length < 6}
+                className="w-full px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white font-semibold rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:scale-105"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Joining Session...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-5 h-5" />
+                    Join Session
+                  </>
+                )}
+              </button>
 
               {showScanner && (
                 <QRScanner
@@ -204,15 +194,15 @@ export const SessionJoiner = ({ onSessionEnd }) => {
                   onClose={() => setShowScanner(false)}
                 />
               )}
-            </form>
 
-            <div className="mt-6 pt-6 border-t border-neutral-700">
-              <p className="text-sm text-neutral-500 text-center">
-                Files are received directly from sender. Nothing stored on
-                servers.
-              </p>
-            </div>
-          </Card>
+              <div className="relative overflow-hidden bg-gradient-to-br from-neutral-800/50 to-neutral-900/50 border border-neutral-700/50 rounded-xl p-4">
+                <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 rounded-full blur-2xl" />
+                <p className="relative text-sm text-neutral-400 text-center">
+                  Files are received directly from sender. Nothing stored on servers.
+                </p>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     );
@@ -223,21 +213,29 @@ export const SessionJoiner = ({ onSessionEnd }) => {
       <div className="w-full max-w-6xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 pt-8">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
+            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2 flex items-center gap-3">
               Receive Session Active
+              <span className="text-xs font-semibold bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/30">
+                LIVE
+              </span>
             </h1>
             <div className="flex items-center gap-3">
               <StatusBadge status={connectionState} />
               {isChannelReady && (
-                <span className="text-sm text-green-400 font-medium">
+                <span className="text-sm text-emerald-400 font-medium flex items-center gap-1">
+                  <Check className="w-4 h-4" />
                   Ready to receive files
                 </span>
               )}
             </div>
           </div>
-          <Button variant="outline" onClick={handleEndSession}>
+          <button
+            onClick={handleEndSession}
+            className="px-6 py-3 bg-neutral-800/50 border-2 border-neutral-700 text-neutral-300 font-semibold rounded-lg hover:bg-neutral-800 hover:border-neutral-600 hover:text-white transition-all flex items-center justify-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
             Leave Session
-          </Button>
+          </button>
         </div>
 
         {error && (
@@ -256,51 +254,61 @@ export const SessionJoiner = ({ onSessionEnd }) => {
           />
         )}
 
-        <div className="grid lg:grid-cols-2 gap-6 mb-8">
-          {!showTransfer && session && (
-            <div className="group bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 sm:p-10 hover:bg-neutral-800/70 transition-all duration-300 hover:border-green-500/30 animate-fade-in">
-              <h2 className="text-2xl font-bold text-white mb-8 flex items-center gap-3">
-                <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
-                You're Connected
-              </h2>
-              <div className="bg-neutral-900/50 rounded-2xl p-6 mb-8 border border-neutral-700">
-                <p className="text-neutral-400 text-sm mb-3">Session Code</p>
-                <p className="session-code">{session.sessionId}</p>
-              </div>
+        {!showTransfer && session && (
+          <div className="animate-fade-in mb-8">
+            <div className="group relative overflow-hidden bg-gradient-to-br from-neutral-800/50 to-neutral-900/50 hover:from-neutral-800/70 hover:to-neutral-900/70 border border-neutral-700/50 hover:border-emerald-500/30 rounded-2xl p-8 sm:p-10 transition-all duration-300">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl group-hover:bg-emerald-500/10 transition-all" />
+              
+              <div className="relative">
+                <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                  <span className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></span>
+                  You're Connected
+                </h2>
+                
+                <div className="bg-neutral-900/50 rounded-2xl p-6 mb-6 border border-neutral-700">
+                  <p className="text-neutral-400 text-sm mb-3">Session Code</p>
+                  <p className="text-3xl font-mono font-bold text-emerald-400 tracking-wider">
+                    {session.sessionId}
+                  </p>
+                </div>
 
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0" />
-                  <p className="text-neutral-300 text-sm">
-                    Connected to sender securely
-                  </p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0" />
-                  <p className="text-neutral-300 text-sm">
-                    Waiting for file transfer to begin
-                  </p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0" />
-                  <p className="text-neutral-300 text-sm">
-                    Files will download directly to your device
-                  </p>
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3">
+                    <Check className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-neutral-300 text-sm">
+                      Connected to sender securely
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Check className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-neutral-300 text-sm">
+                      Waiting for file transfer to begin
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Check className="w-5 h-5 text-emerald-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-neutral-300 text-sm">
+                      Files will download directly to your device
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {!isChannelReady && !showTransfer && session && (
-          <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-12 text-center animate-fade-in">
-            <LoadingSpinner size="lg" />
-            <p className="mt-6 text-lg font-medium text-white">
-              Establishing connection...
-            </p>
-            <p className="mt-2 text-sm text-neutral-400">
-              Connecting to sender securely
-            </p>
+          <div className="relative overflow-hidden bg-gradient-to-br from-neutral-800/50 to-neutral-900/50 border border-neutral-700/50 rounded-2xl p-12 text-center animate-fade-in">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-neutral-700/10 rounded-full blur-3xl" />
+            <div className="relative flex flex-col items-center justify-center">
+              <Loader2 className="w-16 h-16 text-neutral-600 animate-spin mb-4" />
+              <p className="mt-6 text-lg font-medium text-white">
+                Establishing connection...
+              </p>
+              <p className="mt-2 text-sm text-neutral-400">
+                Connecting to sender securely
+              </p>
+            </div>
           </div>
         )}
 
