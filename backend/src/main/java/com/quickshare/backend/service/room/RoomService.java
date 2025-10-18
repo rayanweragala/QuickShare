@@ -3,16 +3,21 @@ package com.quickshare.backend.service.room;
 import com.quickshare.backend.component.RateLimitService;
 import com.quickshare.backend.dto.room.*;
 import com.quickshare.backend.entity.Room;
-import com.quickshare.backend.entity.RoomFile;
 import com.quickshare.backend.entity.RoomParticipant;
+import com.quickshare.backend.mapper.RoomMapper;
 import com.quickshare.backend.model.enums.RoomStatus;
 import com.quickshare.backend.model.enums.RoomVisibility;
+import com.quickshare.backend.model.room.RoomProjection;
 import com.quickshare.backend.repository.RoomParticipantRepository;
 import com.quickshare.backend.repository.RoomRepository;
+import com.quickshare.backend.service.CacheService;
 import com.quickshare.backend.util.AnimalNameGenerator;
 import com.quickshare.backend.util.LoggerUtil;
 import com.quickshare.backend.util.StringUtilities;
+import jakarta.persistence.criteria.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -34,8 +39,10 @@ public class RoomService {
     private final UsageLimitService usageLimitService;
     private final StringUtilities stringUtilities;
     private final CloudflareR2Service cloudflareR2Service;
-
+    private final CacheService cacheService;
+    private final RoomCacheService roomCacheService;
     @Transactional
+    @CacheEvict(value = {"publicRooms","rooms"}, allEntries = true)
     public RoomResponse createRoom(CreateRoomRequest request, String userUuid, String ipAddress) {
         if(!rateLimitService.canCreateRoom(userUuid)) {
             throw new RuntimeException("room creation limit exceeded for today");
@@ -89,16 +96,20 @@ public class RoomService {
         room.addParticipant(creatorParticipant);
         roomRepository.save(room);
 
-        return mapToRoomResponse(room);
+        cacheService.updateRoomInCache(room.getId(),RoomMapper.mapToRoomResponse(room));
+        return RoomMapper.mapToRoomResponse(room);
     }
 
     @Transactional
-    public RoomDetailsResponse joinRoom(String roomCode, String userUuid, String socketId, String ipAddress, String userId) {
+    public RoomDetailsResponse joinRoom(String roomCode,  String socketId, String ipAddress, String userId) {
         Room room = roomRepository.findByRoomCode(roomCode).orElseThrow(() -> new RuntimeException("room not found"));
+
+        Long roomId = room.getId();
 
         if(room.isExpired()) {
             room.setStatus(RoomStatus.EXPIRED);
             roomRepository.save(room);
+            cacheService.evictRoomCaches(roomId);
             throw new RuntimeException("room has expired");
         }
 
@@ -147,16 +158,23 @@ public class RoomService {
         room.updateActivity();
         roomRepository.save(room);
 
-        return getRoomDetails(room.getId());
+        cacheService.evictRoomDetails(roomId);
+        cacheService.evictCache("roomParticipants", roomId);
+
+        if (room.getRoomVisibility() == RoomVisibility.PUBLIC) {
+            cacheService.evictPublicRoomsCache();
+        }
+        return roomCacheService.getRoomDetails(room.getId());
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "roomDetails", key = "#roomId", unless = "#result == null ")
     public RoomDetailsResponse getRoomDetails(Long roomId) {
         Room room = roomRepository.findById(roomId).orElseThrow(() -> new RuntimeException("room not found"));
 
-        List<ParticipantInfo> participants = room.getParticipants().stream().map(this::mapToParticipantInfo).collect(Collectors.toList());
+        List<ParticipantInfo> participants = room.getParticipants().stream().map(RoomMapper::mapToParticipantInfo).collect(Collectors.toList());
 
-        List<FileInfo> files = room.getFiles().stream().map(this::mapToFileInfo).collect(Collectors.toList());
+        List<FileInfo> files = room.getFiles().stream().map(RoomMapper::mapToFileInfo).collect(Collectors.toList());
 
         RoomStats stats = RoomStats.builder()
                 .totalFiles(files.size())
@@ -168,7 +186,7 @@ public class RoomService {
                 .build();
 
         return RoomDetailsResponse.builder()
-                .room(mapToRoomResponse(room))
+                .room(RoomMapper.mapToRoomResponse(room))
                 .participants(participants)
                 .files(files)
                 .stats(stats)
@@ -176,17 +194,20 @@ public class RoomService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "publicRooms", key = "'page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize", unless = "#result == null || #result.isEmpty()")
     public Page<RoomResponse> getPublicRooms(Pageable pageable) {
-        return roomRepository.findPublicRooms(RoomVisibility.PUBLIC, RoomStatus.ACTIVE, pageable).map(this::mapToRoomResponse);
+        return roomRepository.findPublicRooms(RoomVisibility.PUBLIC, RoomStatus.ACTIVE, pageable).map(RoomMapper::mapToRoomResponse);
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "publicRooms", key = "'search_' + #search + '_page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize", unless = "#result == null || #result.isEmpty()")
     public Page<RoomResponse> searchPublicRooms(String search, Pageable pageable) {
         return roomRepository.searchPublicRooms(RoomVisibility.PUBLIC, RoomStatus.ACTIVE, search, pageable)
-                .map(this::mapToRoomResponse);
+                .map(RoomMapper::mapToRoomResponse);
     }
 
     @Transactional
+    @CacheEvict(value = {"roomDetails", "roomParticipants", "publicRooms", "rooms"}, key = "#roomId")
     public void leaveRoom(Long roomId, String socketId) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("room not found"));
@@ -204,6 +225,7 @@ public class RoomService {
     }
 
     @Transactional
+    @CacheEvict(value = {"rooms", "roomDetails", "roomParticipants", "publicRooms", "roomFiles"}, key = "#roomId")
     public void deleteRoom(Long roomId, String userUuid) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("room not found"));
@@ -213,6 +235,7 @@ public class RoomService {
     }
 
     @Transactional
+    @CacheEvict(value = "roomDetails", key = "#roomId")
     public void updateActivity(Long roomId) {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("room not found"));
@@ -220,57 +243,8 @@ public class RoomService {
         roomRepository.save(room);
     }
 
-    private RoomResponse mapToRoomResponse(Room room) {
-        return RoomResponse.builder()
-                .id(room.getId())
-                .roomCode(room.getRoomCode())
-                .roomName(room.getRoomName())
-                .roomIcon(room.getRoomIcon())
-                .creatorAnimalName(room.getCreatorAnimalName())
-                .visibility(room.getRoomVisibility())
-                .status(room.getStatus())
-                .participantCount(room.getParticipants().size())
-                .fileCount(room.getFiles().size())
-                .currentStorageBytes(room.getCurrentStorageBytes())
-                .maxStorageBytes(room.getMaxStorageBytes())
-                .creatorOnlyUpload(room.getCreatorOnlyUpload())
-                .createdAt(room.getCreatedAt().toString())
-                .expiresAt(room.getExpiresAt().toString())
-                .totalDownloads(room.getFiles().stream().mapToLong(RoomFile::getDownloadCount).sum())
-                .totalVisitors(room.getTotalVisitors())
-                .isExpired(room.isExpired())
-                .isFull(room.isFull())
-                .build();
-    }
-
-    private ParticipantInfo mapToParticipantInfo(RoomParticipant participant){
-        return ParticipantInfo.builder()
-                .socketId(participant.getSocketId())
-                .animalName(participant.getAnimalName())
-                .animalIcon(participant.getAnimalIcon())
-                .avatarColor(participant.getAvatarColor())
-                .isCreator(participant.getIsCreator())
-                .isOnline(participant.getIsOnline())
-                .joinedAt(participant.getJoinedAt().toString())
-                .lastSeenAt(participant.getLastSeenAt() != null ? participant.getLastSeenAt().toString() : null)
-                .build();
-    }
-
-    private FileInfo mapToFileInfo(RoomFile file){
-        return FileInfo.builder()
-                .fileId(file.getFileId())
-                .fileName(file.getFileName())
-                .fileType(file.getFileType())
-                .fileSize(file.getFileSize())
-                .uploaderAnimalName(file.getUploaderAnimalName())
-                .uploadedAt(file.getUploadedAt().toString())
-                .downloadCount(file.getDownloadCount())
-                .downloadUrl(file.getCloudFlareUrl())
-                .isAvailable(file.getIsAvailable())
-                .build();
-    }
-
     @Scheduled(cron = "0 0 * * * ?")
+    @CacheEvict(value = {"rooms", "roomDetails", "publicRooms", "roomParticipants", "roomFiles"}, allEntries = true)
     public void expireExpiredRooms() {
         LocalDateTime now = LocalDateTime.now();
         List<Room> expiredRooms = roomRepository.findExpiredRooms(now,RoomStatus.ACTIVE);
@@ -296,5 +270,15 @@ public class RoomService {
         if(!expiredRooms.isEmpty()) {
             LoggerUtil.audit("expired " + expiredRooms.size() + ",rooms in batch");
         }
+    }
+    @Cacheable(value = "publicRooms", key = "'advanced_' + #query + '_' + #minParticipants + '_' + #maxParticipants + '_' + #minFiles + '_' + #hasSpace + '_' + #sortBy + '_page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize", unless = "#result == null || #result.isEmpty()")
+    public Page<RoomResponse> searchRoomsAdvanced(String query, Integer minParticipants, Integer maxParticipants, Integer minFiles, Boolean hasSpace, String sortBy, Pageable pageable) {
+
+        Page<RoomProjection> projections = roomRepository.searchRoomsAdvanced(
+                query, minParticipants, maxParticipants,
+                minFiles, hasSpace, sortBy, pageable
+        );
+
+        return projections.map(RoomMapper::mapToRoomResponse);
     }
 }
