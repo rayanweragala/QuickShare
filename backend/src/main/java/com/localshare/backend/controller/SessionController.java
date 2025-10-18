@@ -18,7 +18,7 @@ import java.time.format.DateTimeFormatter;
  */
 
 @RestController
-@RequestMapping("/v1/sessions")
+@RequestMapping("/api/v1/sessions")
 @RequiredArgsConstructor
 public class SessionController {
 
