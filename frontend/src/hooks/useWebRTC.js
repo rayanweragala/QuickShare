@@ -208,7 +208,7 @@ export const useWebRTC = (isInitiator, isBroadcastMode = false) => {
     });
 
     socketService.on("peer-ready", (message) => {
-      console.log("DEBUG: peer-ready event received", message);
+      logger.debug("peer-ready event received", message);
       const receiverId = message?.from || message?.data?.receiverId || null;
       handlePeerReady(receiverId);
     });

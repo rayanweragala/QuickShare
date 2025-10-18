@@ -2,6 +2,7 @@ package com.quickshare.backend.util;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 public class LoggerUtil {
     private static final Logger AUDIT_LOGGER = LoggerFactory.getLogger("audit-log");
     private static final Logger DEV_LOGGER = LoggerFactory.getLogger("dev-log");

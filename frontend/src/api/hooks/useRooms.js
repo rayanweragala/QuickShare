@@ -1,6 +1,4 @@
-import React, { useState } from 'react';
-import { QueryClient, QueryClientProvider, useMutation, useQuery } from '@tanstack/react-query';
-import { Upload, Share2, Users, Clock, Lock, Globe, X, Plus, Copy, Check, Search, Download, Trash2, FileIcon, QrCode } from 'lucide-react';
+import { QueryClient } from '@tanstack/react-query';
 
 const queryClient = new QueryClient({
   defaultOptions: {
