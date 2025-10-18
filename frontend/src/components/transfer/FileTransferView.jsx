@@ -61,22 +61,22 @@ export const FileTransferView = ({ role, connectedReceivers = [] }) => {
     !isReceiving
   ) {
     return (
-      <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 animate-fade-in">
-        <h2 className="text-2xl font-bold text-white mb-6">
+      <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-6 sm:p-8 animate-fade-in">
+        <h2 className="text-xl sm:text-2xl font-bold text-white mb-6">
           Received Files ({receivedFiles.length})
         </h2>
 
-        <div className="space-y-3 mb-6">
+        <div className="space-y-4 mb-6">
           {receivedFiles.map((file, index) => (
             <div
               key={index}
-              className="bg-neutral-900/50 rounded-xl p-5 border border-neutral-700 hover:border-green-500/30 transition-colors"
+              className="bg-neutral-900/50 rounded-xl p-4 sm:p-5 border border-neutral-700 hover:border-green-500/30 transition-colors"
             >
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-500/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-1">
                     <svg
-                      className="w-5 h-5 text-green-500"
+                      className="w-4 h-4 sm:w-5 sm:h-5 text-green-500"
                       fill="none"
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -88,10 +88,10 @@ export const FileTransferView = ({ role, connectedReceivers = [] }) => {
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-white truncate text-lg">
+                    <p className="font-semibold text-white truncate text-base sm:text-lg">
                       {file.metadata.name}
                     </p>
-                    <p className="text-neutral-400 text-sm">
+                    <p className="text-neutral-400 text-sm mt-1">
                       {formatFileSize(file.metadata.size)}
                     </p>
                   </div>
@@ -100,7 +100,7 @@ export const FileTransferView = ({ role, connectedReceivers = [] }) => {
                 <button
                   onClick={() => downloadReceivedFile(index)}
                   disabled={currentlyDownloading !== null}
-                  className="flex-shrink-0 bg-green-600 hover:bg-green-700 disabled:bg-neutral-600 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 flex items-center gap-2 whitespace-nowrap"
+                  className="w-full sm:w-auto flex-shrink-0 bg-green-600 hover:bg-green-700 disabled:bg-neutral-600 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 whitespace-nowrap text-sm sm:text-base"
                 >
                   <svg
                     className="w-4 h-4"
@@ -113,7 +113,7 @@ export const FileTransferView = ({ role, connectedReceivers = [] }) => {
                   >
                     <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  Download
+                  {currentlyDownloading === index ? "Downloading..." : "Download"}
                 </button>
               </div>
             </div>
@@ -121,8 +121,10 @@ export const FileTransferView = ({ role, connectedReceivers = [] }) => {
         </div>
 
         <div className="bg-neutral-900/30 rounded-lg p-4 border border-neutral-700">
-          <p className="text-sm text-neutral-400">
-            Select files above to download them individually
+          <p className="text-sm text-neutral-400 text-center sm:text-left">
+            {receivedFiles.length > 1 
+              ? "Tap on any file above to download it"
+              : "Tap the download button to save the file to your device"}
           </p>
         </div>
       </div>
@@ -137,14 +139,14 @@ export const FileTransferView = ({ role, connectedReceivers = [] }) => {
         <FileSelector onFileSelect={handleFileSelect} />
 
         {selectedFile && (
-          <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 animate-fade-in">
+          <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-6 sm:p-8 animate-fade-in">
             <div className="flex items-start justify-between gap-4 mb-6">
               <div className="flex-1">
-                <h3 className="text-2xl font-bold text-white mb-3">
+                <h3 className="text-xl sm:text-2xl font-bold text-white mb-3">
                   Ready to Send
                 </h3>
                 <div className="flex flex-col gap-2">
-                  <span className="font-medium text-green-400 text-lg">
+                  <span className="font-medium text-green-400 text-base sm:text-lg break-words">
                     {selectedFile.name}
                   </span>
                   <span className="text-neutral-400 text-sm">
@@ -154,7 +156,7 @@ export const FileTransferView = ({ role, connectedReceivers = [] }) => {
               </div>
               <button
                 onClick={() => setSelectedFile(null)}
-                className="text-neutral-400 hover:text-white transition-colors"
+                className="text-neutral-400 hover:text-white transition-colors flex-shrink-0"
               >
                 <svg
                   className="w-6 h-6"
@@ -192,22 +194,24 @@ export const FileTransferView = ({ role, connectedReceivers = [] }) => {
 
   if (isSending || isReceiving) {
     return (
-      <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 animate-fade-in">
+      <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-6 sm:p-8 animate-fade-in">
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-2xl font-bold text-white">
+            <h3 className="text-xl sm:text-2xl font-bold text-white">
               {isSending ? "Sending" : "Receiving"} File
             </h3>
             <button
               onClick={cancelTransfer}
-              className="text-neutral-400 hover:text-white transition-colors px-4 py-2"
+              className="text-neutral-400 hover:text-white transition-colors px-3 py-2 text-sm sm:text-base"
             >
               Cancel
             </button>
           </div>
 
           {fileName && (
-            <p className="text-neutral-300 mb-6 text-lg">{fileName}</p>
+            <p className="text-neutral-300 mb-6 text-base sm:text-lg break-words">
+              {fileName}
+            </p>
           )}
 
           <div className="w-full bg-neutral-700 rounded-full overflow-hidden h-3 mb-4">
@@ -221,7 +225,7 @@ export const FileTransferView = ({ role, connectedReceivers = [] }) => {
             <span className="text-neutral-400">
               Chunk {currentChunk} of {totalChunks}
             </span>
-            <span className="font-medium text-green-400 text-lg">
+            <span className="font-medium text-green-400 text-base">
               {Math.round(progress)}%
             </span>
           </div>
@@ -238,10 +242,10 @@ export const FileTransferView = ({ role, connectedReceivers = [] }) => {
 
   if (transferComplete) {
     return (
-      <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-12 text-center animate-fade-in">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/10 rounded-2xl mb-4 border border-green-500/20">
+      <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 sm:p-12 text-center animate-fade-in">
+        <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-green-500/10 rounded-2xl mb-4 border border-green-500/20">
           <svg
-            className="w-8 h-8 text-green-500"
+            className="w-7 h-7 sm:w-8 sm:h-8 text-green-500"
             fill="none"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -253,17 +257,19 @@ export const FileTransferView = ({ role, connectedReceivers = [] }) => {
           </svg>
         </div>
 
-        <h3 className="text-3xl font-bold text-white mb-2">
+        <h3 className="text-2xl sm:text-3xl font-bold text-white mb-2">
           Transfer Complete
         </h3>
-        <p className="text-lg text-green-400 font-medium mb-6">
+        <p className="text-base sm:text-lg text-green-400 font-medium mb-6">
           {role === "sender"
             ? "File delivered successfully"
             : "File saved to your device"}
         </p>
 
         {fileName && (
-          <p className="text-sm text-green-400 mb-6 font-medium">{fileName}</p>
+          <p className="text-sm text-green-400 mb-6 font-medium break-words px-4">
+            {fileName}
+          </p>
         )}
 
         {role === "sender" && (
@@ -280,10 +286,10 @@ export const FileTransferView = ({ role, connectedReceivers = [] }) => {
 
   if (role === "receiver") {
     return (
-      <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-12 text-center animate-fade-in">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500/10 rounded-2xl mb-4 border border-green-500/20">
+      <div className="bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 sm:p-12 text-center animate-fade-in">
+        <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-green-500/10 rounded-2xl mb-4 border border-green-500/20">
           <svg
-            className="w-8 h-8 text-green-500 animate-pulse"
+            className="w-7 h-7 sm:w-8 sm:h-8 text-green-500 animate-pulse"
             fill="none"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -294,10 +300,10 @@ export const FileTransferView = ({ role, connectedReceivers = [] }) => {
             <path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
           </svg>
         </div>
-        <h3 className="text-2xl font-bold text-white mb-2">
+        <h3 className="text-xl sm:text-2xl font-bold text-white mb-2">
           Waiting for Files
         </h3>
-        <p className="text-neutral-400">
+        <p className="text-neutral-400 text-sm sm:text-base">
           The sender will choose files to transfer
         </p>
       </div>
