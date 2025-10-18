@@ -92,11 +92,11 @@ export const SessionJoiner = ({ onSessionEnd }) => {
   const handleEndSession = async () => {
     try {
       closeConnection();
-      
+
       socketService.disconnect();
-      
+
       await endSession();
-      
+
       setShowTransfer(false);
       setCode("");
       onSessionEnd?.();
@@ -259,10 +259,10 @@ export const SessionJoiner = ({ onSessionEnd }) => {
         <div className="grid lg:grid-cols-2 gap-6 mb-8">
           {!showTransfer && session && (
             <div className="group bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 sm:p-10 hover:bg-neutral-800/70 transition-all duration-300 hover:border-green-500/30 animate-fade-in">
-              <h2 className="text-2xl font-bold text-white mb-8">
-                Connected Session
+              <h2 className="text-2xl font-bold text-white mb-8 flex items-center gap-3">
+                <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+                You're Connected
               </h2>
-
               <div className="bg-neutral-900/50 rounded-2xl p-6 mb-8 border border-neutral-700">
                 <p className="text-neutral-400 text-sm mb-3">Session Code</p>
                 <p className="session-code">{session.sessionId}</p>
@@ -285,60 +285,6 @@ export const SessionJoiner = ({ onSessionEnd }) => {
                   <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0" />
                   <p className="text-neutral-300 text-sm">
                     Files will download directly to your device
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!showTransfer && (
-            <div className="group bg-neutral-800/50 backdrop-blur rounded-2xl border border-neutral-700 p-8 sm:p-10 hover:bg-neutral-800/70 transition-all duration-300 hover:border-green-500/30 animate-fade-in">
-              <h2 className="text-2xl font-bold text-white mb-6">
-                Connection Status
-              </h2>
-
-              <div className="space-y-6">
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <svg
-                      className="w-5 h-5 text-green-500"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="text-white font-medium text-sm">
-                      Session established
-                    </span>
-                  </div>
-                  <p className="text-neutral-400 text-xs ml-7">
-                    You're connected to the sender
-                  </p>
-                </div>
-
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <svg
-                      className="w-5 h-5 text-yellow-500"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span className="text-white font-medium text-sm">
-                      Awaiting files
-                    </span>
-                  </div>
-                  <p className="text-neutral-400 text-xs ml-7">
-                    Ready to receive when sender starts
                   </p>
                 </div>
               </div>

@@ -88,7 +88,7 @@ export const FileTransferView = ({ role, connectedReceivers = [] }) => {
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-white truncate">
+                    <p className="font-semibold text-white truncate text-lg">
                       {file.metadata.name}
                     </p>
                     <p className="text-neutral-400 text-sm">
@@ -253,13 +253,13 @@ export const FileTransferView = ({ role, connectedReceivers = [] }) => {
           </svg>
         </div>
 
-        <h3 className="text-2xl font-bold text-white mb-2">
+        <h3 className="text-3xl font-bold text-white mb-2">
           Transfer Complete
         </h3>
-        <p className="text-neutral-400 mb-6">
+        <p className="text-lg text-green-400 font-medium mb-6">
           {role === "sender"
-            ? "File sent successfully"
-            : "File downloaded successfully"}
+            ? "File delivered successfully"
+            : "File saved to your device"}
         </p>
 
         {fileName && (
