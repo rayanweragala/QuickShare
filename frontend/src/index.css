@@ -48,7 +48,47 @@
   --border-secondary: #d4d4d8;
 }
 
+/* Apply theme to body */
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
 @layer utilities {
+  /* Theme-aware utility classes */
+  .bg-theme-primary {
+    background-color: var(--bg-primary);
+  }
+
+  .bg-theme-secondary {
+    background-color: var(--bg-secondary);
+  }
+
+  .bg-theme-tertiary {
+    background-color: var(--bg-tertiary);
+  }
+
+  .text-theme-primary {
+    color: var(--text-primary);
+  }
+
+  .text-theme-secondary {
+    color: var(--text-secondary);
+  }
+
+  .text-theme-tertiary {
+    color: var(--text-tertiary);
+  }
+
+  .border-theme-primary {
+    border-color: var(--border-primary);
+  }
+
+  .border-theme-secondary {
+    border-color: var(--border-secondary);
+  }
+
   .container-narrow {
     @apply max-w-md mx-auto;
   }
