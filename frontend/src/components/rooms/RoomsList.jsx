@@ -17,6 +17,7 @@ import {
   Key,
 } from "lucide-react";
 import { Listbox } from "@headlessui/react";
+import { SkeletonRoom } from "../common/Skeleton";
 
 export const RoomsList = ({ onJoinRoom, isOpen, onClose }) => {
   const [view, setView] = useState("public");
@@ -379,8 +380,10 @@ export const RoomsList = ({ onJoinRoom, isOpen, onClose }) => {
 
               <div className="flex-1 overflow-y-auto p-6 space-y-5">
                 {isLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="w-8 h-8 border-4 border-zinc-800 border-t-green-500 rounded-full animate-spin" />
+                  <div className="space-y-3">
+                    <SkeletonRoom />
+                    <SkeletonRoom />
+                    <SkeletonRoom />
                   </div>
                 ) : rooms.length === 0 ? (
                   <div className="text-center py-12 text-zinc-400">
@@ -524,8 +527,10 @@ export const RoomsList = ({ onJoinRoom, isOpen, onClose }) => {
 
               <div className="flex-1 overflow-y-auto p-6 space-y-5">
                 {isLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="w-8 h-8 border-4 border-zinc-800 border-t-green-500 rounded-full animate-spin" />
+                  <div className="space-y-3">
+                    <SkeletonRoom />
+                    <SkeletonRoom />
+                    <SkeletonRoom />
                   </div>
                 ) : rooms.length === 0 ? (
                   <div className="text-center py-12 text-zinc-400">

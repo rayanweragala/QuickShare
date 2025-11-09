@@ -26,10 +26,14 @@ import {
 } from "lucide-react";
 import FileUploadModal from "./FileUploadModal";
 import { useFileDownload, useFileDelete } from "../../api/hooks/useFileUpload";
+import { useToast } from "../../contexts/ToastContext";
+import { ConfirmDialog, useConfirmDialog } from "../common/ConfirmDialog";
 
 import { logger } from "../../utils/logger";
 
 const RoomModal = ({ isOpen, onClose, roomCode }) => {
+  const toast = useToast();
+  const { dialogState, showConfirm, closeDialog } = useConfirmDialog();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("members");
   const [copiedCode, setCopiedCode] = useState(false);
@@ -106,6 +110,7 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
     navigator.clipboard.writeText(roomCode);
     setCopiedCode(true);
     setTimeout(() => setCopiedCode(false), 2000);
+    toast.success('Room code copied to clipboard!');
   };
 
   const formatTimeRemaining = (expiresAt) => {
@@ -164,17 +169,23 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
     }
   };
 
-  const handleDeleteRoom = () => {
+  const handleDeleteRoom = async () => {
     if (roomData?.room?.id) {
-      if (
-        window.confirm(
-          "Are you sure you want to permanently delete this room? This action cannot be undone."
-        )
-      ) {
+      const confirmed = await showConfirm({
+        title: 'Delete Room',
+        message: 'Are you sure you want to permanently delete this room? This action cannot be undone.',
+        confirmText: 'Delete Room',
+        cancelText: 'Cancel',
+        variant: 'danger',
+      });
+
+      if (confirmed) {
         deleteRoomMutation.mutate(roomData.room.id);
+        toast.success('Room deleted successfully!');
       }
     } else {
       logger.error("Cannot delete room: Room ID is missing.");
+      toast.error('Failed to delete room: Room ID is missing');
       onClose();
     }
   };
@@ -697,6 +708,17 @@ const RoomModal = ({ isOpen, onClose, roomCode }) => {
         roomCode={roomCode}
         isCreatorOnly={room.creatorOnlyUpload}
         isCreator={isCreator}
+      />
+
+      <ConfirmDialog
+        isOpen={dialogState.isOpen}
+        onClose={closeDialog}
+        onConfirm={dialogState.onConfirm}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        variant={dialogState.variant}
       />
     </>
   );

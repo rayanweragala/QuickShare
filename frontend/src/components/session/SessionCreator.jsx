@@ -6,6 +6,7 @@ import { logger } from "../../utils/logger";
 import { StatusBadge, ErrorMessage } from "../common";
 import { QRCodeSVG } from "qrcode.react";
 import { FileTransferView } from "../transfer/FileTransferView";
+import { useToast } from "../../contexts/ToastContext";
 import {
   Upload,
   Users,
@@ -22,6 +23,8 @@ import {
 } from "lucide-react";
 
 export const SessionCreator = ({ onSessionEnd, isBroadcast = false }) => {
+  const toast = useToast();
+
   const {
     session,
     isLoading,
@@ -114,6 +117,7 @@ export const SessionCreator = ({ onSessionEnd, isBroadcast = false }) => {
       await navigator.clipboard.writeText(session.sessionId);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+      toast.success('Session code copied to clipboard!');
     }
   };
 
@@ -123,6 +127,7 @@ export const SessionCreator = ({ onSessionEnd, isBroadcast = false }) => {
       await navigator.clipboard.writeText(shareUrl);
       setCopiedUrl(true);
       setTimeout(() => setCopiedUrl(false), 2000);
+      toast.success('Share link copied to clipboard!');
     }
   };
 

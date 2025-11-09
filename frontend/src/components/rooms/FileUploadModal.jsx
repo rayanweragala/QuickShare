@@ -14,12 +14,15 @@ import {
 } from "lucide-react";
 import { useFileUpload } from "../../api/hooks/useFileUpload";
 import { logger } from "../../utils/logger";
+import { useToast } from "../../contexts/ToastContext";
 
 
 const FileUploadModal = ({ isOpen, onClose, roomCode, isCreatorOnly, isCreator }) => {
+  const toast = useToast();
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState(null);
   const fileInputRef = useRef(null);
 
   const uploadMutation = useFileUpload(roomCode);
@@ -53,15 +56,25 @@ const FileUploadModal = ({ isOpen, onClose, roomCode, isCreatorOnly, isCreator }
   };
 
   const handleFile = (file) => {
-    const maxSize = 5 * 1024 * 1024 * 1024; 
+    const maxSize = 5 * 1024 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert("File size exceeds maximum allowed (5GB)");
+      toast.error("File size exceeds maximum allowed (5GB)");
       return;
     }
     uploadMutation.reset();
     setUploadProgress(0);
     setSelectedFile(file);
 
+    // Create preview for image files
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setPreviewUrl(null);
+    }
   };
 
   const handleUpload = async () => {
@@ -73,12 +86,16 @@ const FileUploadModal = ({ isOpen, onClose, roomCode, isCreatorOnly, isCreator }
         onProgress: (progress) => setUploadProgress(progress),
       });
 
+      toast.success(`${selectedFile.name} uploaded successfully!`);
+
       setTimeout(() => {
         setSelectedFile(null);
         setUploadProgress(0);
+        setPreviewUrl(null);
       }, 1500);
     } catch (error) {
       logger.error("Upload failed:", error);
+      toast.error(`Failed to upload ${selectedFile.name}`);
     }
   };
 
@@ -161,18 +178,31 @@ const FileUploadModal = ({ isOpen, onClose, roomCode, isCreatorOnly, isCreator }
             onDragLeave={handleDrag}
             onDragOver={handleDrag}
             onDrop={handleDrop}
+            role="button"
+            aria-label="File drop zone"
+            tabIndex={0}
             className={`relative border-2 border-dashed rounded-xl p-12 transition-all ${
               dragActive
-                ? "border-green-500 bg-green-500/10"
-                : "border-zinc-700 bg-zinc-800/30"
+                ? "border-green-500 bg-green-500/10 scale-[1.02]"
+                : "border-zinc-700 bg-zinc-800/30 hover:border-zinc-600"
             } ${uploadMutation.isPending ? "opacity-50 pointer-events-none" : ""}`}
           >
+            {dragActive && (
+              <div className="absolute inset-0 bg-green-500/20 rounded-xl flex items-center justify-center backdrop-blur-sm z-10">
+                <div className="text-center">
+                  <Upload className="w-12 h-12 text-green-400 mx-auto mb-2 animate-bounce" />
+                  <p className="text-lg font-semibold text-green-400">Drop file to upload</p>
+                </div>
+              </div>
+            )}
+
             <input
               ref={fileInputRef}
               type="file"
               onChange={handleFileInput}
               className="hidden"
               disabled={uploadMutation.isPending}
+              aria-label="File input"
             />
 
             {!selectedFile ? (
@@ -188,7 +218,8 @@ const FileUploadModal = ({ isOpen, onClose, roomCode, isCreatorOnly, isCreator }
                 </p>
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-6 py-2 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-green-500/20"
+                  className="px-6 py-2 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-lg transition-colors shadow-lg shadow-green-500/20 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  aria-label="Choose file to upload"
                 >
                   Choose File
                 </button>
@@ -198,6 +229,15 @@ const FileUploadModal = ({ isOpen, onClose, roomCode, isCreatorOnly, isCreator }
               </div>
             ) : (
               <div className="space-y-4">
+                {previewUrl && (
+                  <div className="rounded-xl overflow-hidden border border-zinc-700">
+                    <img
+                      src={previewUrl}
+                      alt="File preview"
+                      className="w-full h-48 object-cover"
+                    />
+                  </div>
+                )}
                 <div className="flex items-start gap-4 p-4 bg-zinc-800 rounded-xl border border-zinc-700">
                   <div className="w-12 h-12 bg-green-500/10 rounded-lg flex items-center justify-center text-green-400 flex-shrink-0 border border-green-500/20">
                     {getFileIcon(selectedFile.type)}
@@ -212,8 +252,12 @@ const FileUploadModal = ({ isOpen, onClose, roomCode, isCreatorOnly, isCreator }
                   </div>
                   {!uploadMutation.isPending && (
                     <button
-                      onClick={() => setSelectedFile(null)}
-                      className="text-zinc-400 hover:text-red-400 transition-colors"
+                      onClick={() => {
+                        setSelectedFile(null);
+                        setPreviewUrl(null);
+                      }}
+                      className="text-zinc-400 hover:text-red-400 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1"
+                      aria-label="Remove selected file"
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -264,7 +308,8 @@ const FileUploadModal = ({ isOpen, onClose, roomCode, isCreatorOnly, isCreator }
             <button
               onClick={handleUpload}
               disabled={uploadMutation.isPending}
-              className="w-full px-6 py-3 bg-green-500 hover:bg-green-600 disabled:bg-zinc-700 text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-500/20"
+              aria-busy={uploadMutation.isPending}
+              className="w-full px-6 py-3 bg-green-500 hover:bg-green-600 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-green-500/20 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               {uploadMutation.isPending ? (
                 <>

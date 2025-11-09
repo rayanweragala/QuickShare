@@ -1,3 +1,5 @@
+import { AlertCircle, X } from 'lucide-react';
+
 export const ErrorMessage = ({
   message,
   onDismiss,
@@ -7,40 +9,23 @@ export const ErrorMessage = ({
 
   return (
     <div
-      className={`bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3 animate-fade-in ${className}`}
+      role="alert"
+      aria-live="assertive"
+      className={`bg-gradient-to-r from-red-500/20 to-rose-500/20 border border-red-500/50 rounded-lg p-4 flex items-start gap-3 animate-fade-in backdrop-blur-xl ${className}`}
     >
       <div className="flex-shrink-0">
-        <svg
-          className="w-5 h-5 text-red-600"
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="2"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
+        <AlertCircle className="w-5 h-5 text-red-400" />
       </div>
       <div className="flex-1">
-        <p className="text-sm text-red-800 font-medium">{message}</p>
+        <p className="text-sm text-red-300 font-medium">{message}</p>
       </div>
       {onDismiss && (
         <button
           onClick={onDismiss}
-          className="flex-shrink-0 text-red-600 hover:text-red-800 transition-colors"
+          className="flex-shrink-0 text-red-400 hover:text-red-300 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 rounded p-1"
+          aria-label="Dismiss error message"
         >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path d="M6 18L18 6M6 6l12 12" />
-          </svg>
+          <X className="w-5 h-5" />
         </button>
       )}
     </div>
