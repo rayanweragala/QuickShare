@@ -6,6 +6,9 @@ import { RoomSuccessModal } from "./components/rooms/RoomSuccessModal";
 import { RoomsList } from "./components/rooms/RoomsList";
 import RoomModal from "./components/rooms/RoomModal";
 import { ErrorMessage } from "./components/common";
+import { ThemeToggle } from "./components/common/ThemeToggle";
+import { WelcomeModal } from "./components/common/WelcomeModal";
+import { OnboardingTour } from "./components/common/OnboardingTour";
 import { useQueryClient } from "@tanstack/react-query";
 import { useFeaturedRoomsSocket } from "./api/hooks/useFeaturedRoomsSocket";
 import { usePublicRoomsSocket } from "./api/hooks/usePublicRoomsSocket";
@@ -249,6 +252,9 @@ function App() {
               <span className="px-3 py-1 border border-green-400/50 text-green-400 bg-green-500/10 rounded-full text-sm font-medium">
                 P2P Powered
               </span>
+              <div data-onboarding="theme-toggle">
+                <ThemeToggle />
+              </div>
             </div>
           </div>
 
@@ -299,7 +305,7 @@ function App() {
                     Share anything, securely with unique codes
                   </p>
 
-                  <div className="space-y-3 mb-4 mt-auto">
+                  <div className="space-y-3 mb-4 mt-auto" data-onboarding="send-files">
                     <button
                       onClick={() => setView("sender")}
                       className="w-full bg-green-500/10 hover:bg-green-500/20 border border-green-400/50 text-green-400 font-bold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
@@ -339,7 +345,7 @@ function App() {
                   <h3 className="text-xl font-bold text-white mb-2">
                     Receive Files
                   </h3>
-                  <p className="text-zinc-400 text-sm mb-6">
+                  <p className="text-zinc-400 text-sm mb-6" data-onboarding="receive-files">
                     Join a share session with a code
                   </p>
 
@@ -520,7 +526,7 @@ function App() {
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-6" data-onboarding="public-rooms">
               <h3 className="text-2xl font-bold text-white flex items-center gap-2">
                 <Globe className="w-6 h-6 text-green-400" />
                 Public Rooms
@@ -824,6 +830,9 @@ function App() {
         }}
         roomCode={selectedRoomCode}
       />
+
+      <WelcomeModal />
+      <OnboardingTour />
     </div>
   );
 }

@@ -4,15 +4,21 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import './index.css';
 import App from './App.jsx';
 import { ToastProvider } from './contexts/ToastContext';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { OnboardingProvider } from './contexts/OnboardingContext';
 
 const queryClient = new QueryClient();
 
 const Root = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <App />
-      </ToastProvider>
+      <ThemeProvider>
+        <OnboardingProvider>
+          <ToastProvider>
+            <App />
+          </ToastProvider>
+        </OnboardingProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 };
