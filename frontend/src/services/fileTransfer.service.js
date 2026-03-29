@@ -29,6 +29,7 @@ class FileTransferService {
     this.onReceiveProgress = null;
     this.onSendComplete = null;
     this.onReceiveComplete = null;
+    this.onReceiveMetadata = null;
     this.onError = null;
   }
 
@@ -56,9 +57,8 @@ class FileTransferService {
         for (const receiverId of receiverIds) {
           const channel = webrtcService.getDataChannel(receiverId);
           if (!channel || channel.readyState !== "open") {
-            throw new Error(
-              `Data channel not ready for receiver: ${receiverId}`
-            );
+            console.warn(`Skipping receiver ${receiverId}: channel not ready`);
+            continue;
           }
         }
       } else {
@@ -243,6 +243,9 @@ class FileTransferService {
     this.fileMetadata = metadata;
     this.receivedChunks = new Array(metadata.totalChunks);
     this.receivedBytes = 0;
+    if (this.onReceiveMetadata) {
+      this.onReceiveMetadata(metadata);
+    }
   }
 
   /**

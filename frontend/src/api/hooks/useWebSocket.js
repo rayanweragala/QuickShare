@@ -13,6 +13,12 @@ export const useWebSocket = ({
   const reconnectTimeoutRef = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
   const reconnectAttempts = useRef(0);
+  const stableParams = useRef(queryParams);
+  const paramsKey = useRef(JSON.stringify(queryParams));
+
+  useEffect(() => {
+    stableParams.current = queryParams;
+  }, [queryParams]);
 
   const SOCKET_URL =
     import.meta.env.VITE_SOCKET_URL ||
@@ -38,7 +44,7 @@ export const useWebSocket = ({
 
     const connect = () => {
       const url = new URL(path, SOCKET_URL);
-      url.search = new URLSearchParams(queryParams).toString();
+      url.search = new URLSearchParams(stableParams.current).toString();
       const wsUrl = url.href.replace(/^http/, 'ws'); 
 
       logger.info(`Connecting to WebSocket: ${wsUrl}`);
@@ -119,7 +125,7 @@ export const useWebSocket = ({
         wsRef.current = null;
       }
     };
-  }, [enabled, path, JSON.stringify(queryParams), onOpen, onMessage, maxReconnectAttempts, SOCKET_URL]);
+  }, [enabled, path, paramsKey.current, onOpen, onMessage, maxReconnectAttempts, SOCKET_URL]);
 
   return { isConnected, sendMessage };
 };

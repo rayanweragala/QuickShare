@@ -4,6 +4,7 @@ import com.quickshare.backend.dto.room.FileInfo;
 import com.quickshare.backend.dto.room.FileUploadResponse;
 import com.quickshare.backend.dto.room.UploadFileRequest;
 import com.quickshare.backend.service.room.FileUploadService;
+import com.quickshare.backend.util.HttpRequestUtils;
 import com.quickshare.backend.util.LoggerUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -11,6 +12,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,6 +21,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/rooms/{roomCode}/files")
 @RequiredArgsConstructor
+@Validated
 @Tag(name = "File Management", description = "APIs for file upload and download in rooms")
 public class FileController {
 
@@ -39,13 +42,7 @@ public class FileController {
             @Valid @RequestBody UploadFileRequest request,
             HttpServletRequest httpRequest) {
 
-        String userId = httpRequest.getHeader("X-User-ID");
-        if (userId == null) {
-            userId = httpRequest.getHeader("X-User-Session");
-        }
-        if (userId == null) {
-            userId = "anonymous";
-        }
+        String userId = HttpRequestUtils.extractUserId(httpRequest);
 
         String socketId = httpRequest.getHeader("X-Socket-Id");
 
@@ -78,13 +75,7 @@ public class FileController {
             @PathVariable String fileId,
             HttpServletRequest httpRequest) {
 
-        String userId = httpRequest.getHeader("X-User-ID");
-        if (userId == null) {
-            userId = httpRequest.getHeader("X-User-Session");
-        }
-        if (userId == null) {
-            userId = "anonymous";
-        }
+        String userId = HttpRequestUtils.extractUserId(httpRequest);
 
         String socketId = httpRequest.getHeader("X-Socket-Id");
 
@@ -141,13 +132,7 @@ public class FileController {
             @PathVariable String fileId,
             HttpServletRequest httpRequest) {
 
-        String userId = httpRequest.getHeader("X-User-ID");
-        if (userId == null) {
-            userId = httpRequest.getHeader("X-User-Session");
-        }
-        if (userId == null) {
-            userId = "anonymous";
-        }
+        String userId = HttpRequestUtils.extractUserId(httpRequest);
 
         String socketId = httpRequest.getHeader("X-Socket-Id");
 
@@ -169,13 +154,7 @@ public class FileController {
             @PathVariable String fileId,
             HttpServletRequest httpRequest) {
 
-        String userId = httpRequest.getHeader("X-User-ID");
-        if (userId == null) {
-            userId = httpRequest.getHeader("X-User-Session");
-        }
-        if (userId == null) {
-            userId = "anonymous";
-        }
+        String userId = HttpRequestUtils.extractUserId(httpRequest);
 
         String socketId = httpRequest.getHeader("X-Socket-Id");
 

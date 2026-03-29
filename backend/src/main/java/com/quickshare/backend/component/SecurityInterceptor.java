@@ -2,6 +2,7 @@ package com.quickshare.backend.component;
 
 import com.quickshare.backend.config.CorsConfig;
 import com.quickshare.backend.service.room.UsageLimitService;
+import com.quickshare.backend.util.HttpRequestUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -65,7 +66,15 @@ public class SecurityInterceptor implements HandlerInterceptor {
      * extract user UUID from header or generate temporary one
      */
     private String extractUserUuid(HttpServletRequest request) {
-        String uuid = request.getHeader("X-User-Session");
+        String uuid = HttpRequestUtils.extractUserId(request);
+
+        if ("anonymous".equals(uuid)) {
+            uuid = null;
+        }
+
+        if (uuid != null && (uuid.length() > 128 || !uuid.matches("[a-zA-Z0-9\\-_]+"))) {
+            uuid = null;
+        }
 
         if (uuid != null && !uuid.trim().isEmpty()) {
             return uuid.trim();
@@ -119,7 +128,11 @@ public class SecurityInterceptor implements HandlerInterceptor {
         }
 
         if (origin == null) {
-            return true; // must change this when deploying on live
+            String method = request.getMethod();
+            if ("GET".equals(method) || "HEAD".equals(method)) {
+                return true;
+            }
+            return false;
         }
 
         final String finalOrigin = origin;

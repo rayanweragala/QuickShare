@@ -332,7 +332,7 @@ public class SessionService {
 
         session.updateActivity();
         sessionRepository.update(session,sessionTimeoutMinutes);
-        LoggerUtil.audit("receiver received for sessionId=" + sessionId + ",receiver=" + receiverSocketId);
+        LoggerUtil.audit("receiver removed for sessionId=" + sessionId + ",receiver=" + receiverSocketId);
     }
 
     /**

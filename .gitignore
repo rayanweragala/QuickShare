@@ -33,3 +33,12 @@ frontend/src/.env*
 *.tmp
 .~lock.*
 
+# IDE files
+.idea/
+backend/.idea/
+.vscode/
+
+# Build outputs / generated artifacts
+backend/target/
+frontend/dist/
+frontend/node_modules/

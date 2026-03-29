@@ -12,5 +12,5 @@ import java.util.Optional;
 @Repository
 public interface RoomParticipantRepository extends JpaRepository<RoomParticipant, Long> {
     Optional<RoomParticipant> findByRoomIdAndUserId(@Param("roomId") Long roomId,
-                                                      @Param("socketId") String socketId);
+                                                    @Param("userId") String userId);
 }

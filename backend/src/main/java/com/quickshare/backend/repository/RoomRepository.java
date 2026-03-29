@@ -21,12 +21,24 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
 
     Optional<Room> findByIdAndStatus(Long id, RoomStatus status);
 
-    @Query("SELECT r FROM Room r WHERE r.roomVisibility = :visibility AND r.status = :status ORDER BY r.lastActivityAt DESC")
+    @Query(
+            value = "SELECT DISTINCT r FROM Room r " +
+                    "LEFT JOIN FETCH r.participants " +
+                    "LEFT JOIN FETCH r.files " +
+                    "WHERE r.roomVisibility = :visibility AND r.status = :status ORDER BY r.lastActivityAt DESC",
+            countQuery = "SELECT COUNT(r) FROM Room r WHERE r.roomVisibility = :visibility AND r.status = :status"
+    )
     Page<Room> findPublicRooms(@Param("visibility") RoomVisibility visibility,
                                @Param("status") RoomStatus status,
                                Pageable pageable);
 
-    @Query("SELECT r FROM Room r WHERE r.roomVisibility = :visibility AND r.status = :status ORDER BY r.lastActivityAt DESC")
+    @Query(
+            value = "SELECT DISTINCT r FROM Room r " +
+                    "LEFT JOIN FETCH r.participants " +
+                    "LEFT JOIN FETCH r.files " +
+                    "WHERE r.roomVisibility = :visibility AND r.status = :status ORDER BY r.lastActivityAt DESC",
+            countQuery = "SELECT COUNT(r) FROM Room r WHERE r.roomVisibility = :visibility AND r.status = :status"
+    )
     Page<Room> findPrivateRooms(@Param("visibility") RoomVisibility visibility,
                                @Param("status") RoomStatus status,
                                Pageable pageable);

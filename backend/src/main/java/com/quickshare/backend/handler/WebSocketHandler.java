@@ -75,6 +75,7 @@ public class WebSocketHandler extends TextWebSocketHandler {
                     .add(session.getId());
             socketToPublicRooms.put(session.getId(),"global");
             LoggerUtil.audit("public rooms websocket connected, socketId=" + session.getId());
+            return;
         }
 
         if (userId != null && "featured".equals(type)) {

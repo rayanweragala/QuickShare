@@ -9,7 +9,7 @@ import { OnboardingProvider } from './contexts/OnboardingContext';
 
 const queryClient = new QueryClient();
 
-const Root = () => {
+export const Root = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>

@@ -18,8 +18,8 @@ public class CacheService {
     public void evictRoomCaches(Long roomId) {
         evictCache("rooms",roomId);
         evictCache("roomDetails",roomId);
-        evictCache("publicRooms","all");
-        evictCache("privateRooms","all");
+        Objects.requireNonNull(cacheManager.getCache("publicRooms")).clear();
+        Objects.requireNonNull(cacheManager.getCache("privateRooms")).clear();
         evictCache("roomParticipants",roomId);
         evictCache("roomFiles",roomId);
     }

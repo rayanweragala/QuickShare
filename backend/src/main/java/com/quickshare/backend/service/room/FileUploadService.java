@@ -79,7 +79,7 @@ public class FileUploadService {
         }
 
         String fileId = UUID.randomUUID().toString();
-        String cloudflareKey = "rooms/" + room.getId() + "/" + fileId + "-" + request.getFileName();
+        String cloudflareKey = "room-" + room.getId() + "-" + fileId + "-" + request.getFileName();
 
         String uploadUrl = cloudflareR2Service.generatePresignedUploadUrl(cloudflareKey,request.getFileType());
 
@@ -162,7 +162,7 @@ public class FileUploadService {
 
         fileRepository.save(file);
 
-        room.addFiles(file);
+        room.setCurrentStorageBytes(room.getCurrentStorageBytes() + file.getFileSize());
         room.updateActivity();
         roomRepository.save(room);
 

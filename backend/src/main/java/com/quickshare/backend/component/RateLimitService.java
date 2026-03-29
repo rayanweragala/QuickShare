@@ -6,6 +6,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.LocalDate;
+import java.util.List;
 
 @Component
 public class RateLimitService {
@@ -83,11 +84,13 @@ public class RateLimitService {
      * reset rate limit for a user (admin function)
      */
     public void resetRateLimit(String userUuid) {
-        String pattern = "rate_limit:" + userUuid + ":*";
-        var keys = redisTemplate.keys(pattern);
-        if (!keys.isEmpty()) {
-            redisTemplate.delete(keys);
-        }
+        List<String> keysToDelete = List.of(
+                "rate_limit:" + userUuid + ":api_request:" + LocalDate.now(),
+                "rate_limit:rooms:" + userUuid + ":" + LocalDate.now(),
+                "rate_limit:uploads:" + userUuid + ":" + LocalDate.now(),
+                "rate_limit:hourly:" + userUuid + ":" + (System.currentTimeMillis() / (60 * 60 * 1000))
+        );
+        redisTemplate.delete(keysToDelete);
     }
 
     /**

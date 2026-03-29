@@ -53,7 +53,7 @@ public class SessionRepository {
         String key = SESSION_KEY_PREFIX + session.getSessionId();
 
         Boolean exists = sessionRedisTemplate.hasKey(key);
-        if(exists){
+        if(Boolean.TRUE.equals(exists)){
             sessionRedisTemplate.opsForValue().set(key, session, timeoutMinutes, TimeUnit.MINUTES);
             LoggerUtil.audit("session updated for sessionId= " + session.getSessionId());
         } else {

@@ -1,0 +1,38 @@
+:root {
+  --color-bg-base: #04060f;
+  --color-bg-surface: #080d1a;
+  --color-bg-elevated: #0d1424;
+  --color-border-subtle: rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(255, 255, 255, 0.10);
+  --color-border-accent: rgba(0, 245, 255, 0.35);
+  --color-cyan: #00F5FF;
+  --color-cyan-dim: rgba(0, 245, 255, 0.15);
+  --color-violet: #7B2FFF;
+  --color-violet-dim: rgba(123, 47, 255, 0.15);
+  --color-green: #00FF94;
+  --color-green-dim: rgba(0, 255, 148, 0.15);
+  --color-red: #FF3B6B;
+  --color-amber: #FFB800;
+  --color-text-primary: #F0F4FF;
+  --color-text-secondary: #8B95B0;
+  --color-text-muted: #4A5568;
+  --color-glow-cyan: 0 0 20px rgba(0, 245, 255, 0.4);
+  --color-glow-violet: 0 0 20px rgba(123, 47, 255, 0.4);
+  --color-glow-green: 0 0 20px rgba(0, 255, 148, 0.4);
+
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'Geist Mono', monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-hex: 0;
+
+  --dur-fast: 150ms;
+  --dur-normal: 250ms;
+  --dur-slow: 400ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}

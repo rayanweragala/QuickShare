@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { fileTransferService } from "../services/fileTransfer.service";
 import { webrtcService } from "../services/webrtc.service";
 import { logger } from "../utils/logger";
@@ -15,6 +15,10 @@ export const useFileTransfer = () => {
   const [transferComplete, setTransferComplete] = useState(false);
   const [receivedFiles, setReceivedFiles] = useState([]); 
   const [currentlyDownloading, setCurrentlyDownloading] = useState(null);
+  const [speedSamples, setSpeedSamples] = useState(Array(10).fill(0));
+  const [currentSpeed, setCurrentSpeed] = useState(0);
+  const transferSizeRef = useRef(0);
+  const speedTrackerRef = useRef({ lastBytes: 0, lastTime: Date.now() });
 
   /**
    * send file through WebRTC
@@ -34,6 +38,9 @@ export const useFileTransfer = () => {
       setIsSending(true);
       setFileName(file.name);
       setProgress(0);
+      transferSizeRef.current = file.size;
+      speedTrackerRef.current.lastBytes = 0;
+      speedTrackerRef.current.lastTime = Date.now();
 
       await fileTransferService.sendFile(file, receiverIds);
     } catch (err) {
@@ -70,6 +77,11 @@ export const useFileTransfer = () => {
     setTransferComplete(false);
     setReceivedFiles([]);
     setCurrentlyDownloading(null);
+    setSpeedSamples(Array(10).fill(0));
+    setCurrentSpeed(0);
+    transferSizeRef.current = 0;
+    speedTrackerRef.current.lastBytes = 0;
+    speedTrackerRef.current.lastTime = Date.now();
   }, []);
 
   /**
@@ -97,10 +109,23 @@ export const useFileTransfer = () => {
    * file transfer callbacks
    */
   useEffect(() => {
+    const updateSpeed = (bytesSoFar) => {
+      const now = Date.now();
+      const elapsedSec = Math.max((now - speedTrackerRef.current.lastTime) / 1000, 0.001);
+      const deltaBytes = Math.max(bytesSoFar - speedTrackerRef.current.lastBytes, 0);
+      const speed = deltaBytes / elapsedSec;
+      speedTrackerRef.current.lastBytes = bytesSoFar;
+      speedTrackerRef.current.lastTime = now;
+      setCurrentSpeed(speed);
+      setSpeedSamples((prev) => [...prev.slice(1), speed]);
+    };
+
     fileTransferService.onSendProgress = (progressPercent, chunk, total) => {
       setProgress(Math.round(progressPercent));
       setCurrentChunk(chunk);
       setTotalChunks(total);
+      const bytes = (transferSizeRef.current * progressPercent) / 100;
+      updateSpeed(bytes);
     };
 
     fileTransferService.onSendComplete = (file) => {
@@ -114,6 +139,14 @@ export const useFileTransfer = () => {
       setProgress(Math.round(progressPercent));
       setCurrentChunk(chunk);
       setTotalChunks(total);
+      const bytes = (transferSizeRef.current * progressPercent) / 100;
+      updateSpeed(bytes);
+    };
+
+    fileTransferService.onReceiveMetadata = (metadata) => {
+      transferSizeRef.current = metadata.size || 0;
+      speedTrackerRef.current.lastBytes = 0;
+      speedTrackerRef.current.lastTime = Date.now();
     };
 
     fileTransferService.onReceiveComplete = (blob, metadata) => {
@@ -144,6 +177,7 @@ export const useFileTransfer = () => {
       fileTransferService.onSendComplete = null;
       fileTransferService.onReceiveProgress = null;
       fileTransferService.onReceiveComplete = null;
+      fileTransferService.onReceiveMetadata = null;
       fileTransferService.onError = null;
       webrtcService.onDataChannelMessage = null;
     };
@@ -160,6 +194,8 @@ export const useFileTransfer = () => {
     transferComplete,
     receivedFiles,
     currentlyDownloading,
+    currentSpeed,
+    speedSamples,
     sendFile,
     cancelTransfer,
     resetTransfer,

@@ -17,6 +17,8 @@ import com.quickshare.backend.util.LoggerUtil;
 import com.quickshare.backend.util.StringUtilities;
 import jakarta.persistence.criteria.*;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.text.StringEscapeUtils;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -26,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -43,6 +46,7 @@ public class RoomService {
     private final CacheService cacheService;
     private final RoomCacheService roomCacheService;
     private final WebSocketHandler webSocketHandler;
+    private final ApplicationEventPublisher applicationEventPublisher;
     @Transactional
     @CacheEvict(value = {"publicRooms","rooms","privateRooms"}, allEntries = true)
     public RoomResponse createRoom(CreateRoomRequest request, String userId, String ipAddress) {
@@ -59,7 +63,7 @@ public class RoomService {
         int expirationHours = request.getExpirationHours() != null ? request.getExpirationHours() : 24;
 
         String roomName = (request.getCustomRoomName() != null && !request.getCustomRoomName().isBlank())
-                ? request.getCustomRoomName()
+                ? StringEscapeUtils.escapeHtml4(request.getCustomRoomName())
                 : animalIdentity.getName() + "'s Room";
 
         Room room = Room.builder()
@@ -275,23 +279,22 @@ public class RoomService {
     public void expireExpiredRooms() {
         LocalDateTime now = LocalDateTime.now();
         List<Room> expiredRooms = roomRepository.findExpiredRooms(now,RoomStatus.ACTIVE);
+        List<String> keysToDelete = new ArrayList<>();
 
         for(Room room : expiredRooms) {
             LoggerUtil.audit("auto-expiring room=" + room.getRoomCode() + " (expired at " + room.getExpiresAt() + ")");
 
             room.setStatus(RoomStatus.EXPIRED);
-            room.getFiles().forEach(file -> {
-                try {
-                    cloudflareR2Service.deleteFile(file.getCloudFlareKey());
-                }catch (Exception ex){
-                    LoggerUtil.warn(RoomService.class,"failed to delete file=" + file.getCloudFlareKey() + "," + ex.getMessage());
-                }
-            });
+            room.getFiles().forEach(file -> keysToDelete.add(file.getCloudFlareKey()));
 
             room.getFiles().clear();
             room.getParticipants().clear();
 
             roomRepository.save(room);
+        }
+
+        if(!keysToDelete.isEmpty()) {
+            applicationEventPublisher.publishEvent(new ExpiredRoomFilesCleanupEvent(keysToDelete));
         }
 
         if(!expiredRooms.isEmpty()) {
@@ -341,7 +344,7 @@ public class RoomService {
             if(request.getRoomName() == null || request.getRoomName().isEmpty()){
                 throw new RuntimeException("not a valid room name");
             }
-            room.setRoomName(request.getRoomName());
+            room.setRoomName(StringEscapeUtils.escapeHtml4(request.getRoomName()));
             room.setIsFeatured(request.getIsFeatured());
 
             Room savedRoom = roomRepository.save(room);

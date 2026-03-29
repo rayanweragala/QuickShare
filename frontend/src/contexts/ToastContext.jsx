@@ -1,42 +1,24 @@
-import { createContext, useContext, useState, useCallback } from 'react';
-import { ToastContainer } from '../components/common/Toast';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useContext, useMemo } from "react";
+import { toast as sonnerToast } from "sonner";
 
 const ToastContext = createContext(null);
 
-let toastId = 0;
-
-export const ToastProvider = ({ children }) => {
-  const [toasts, setToasts] = useState([]);
-
-  const addToast = useCallback((message, type = 'info', duration = 5000) => {
-    const id = toastId++;
-    setToasts((prev) => [...prev, { id, message, type, duration }]);
-    return id;
-  }, []);
-
-  const removeToast = useCallback((id) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  }, []);
-
-  const toast = useCallback({
-    success: (message, duration) => addToast(message, 'success', duration),
-    error: (message, duration) => addToast(message, 'error', duration),
-    warning: (message, duration) => addToast(message, 'warning', duration),
-    info: (message, duration) => addToast(message, 'info', duration),
-  }, [addToast]);
-
-  return (
-    <ToastContext.Provider value={toast}>
-      {children}
-      <ToastContainer toasts={toasts} onClose={removeToast} />
-    </ToastContext.Provider>
+export function ToastProvider({ children }) {
+  const value = useMemo(
+    () => ({
+      success: (message) => sonnerToast.success(message),
+      error: (message) => sonnerToast.error(message),
+      warning: (message) => sonnerToast.warning(message),
+      info: (message) => sonnerToast.info(message),
+    }),
+    []
   );
-};
+  return <ToastContext.Provider value={value}>{children}</ToastContext.Provider>;
+}
 
-export const useToast = () => {
+export function useToast() {
   const context = useContext(ToastContext);
-  if (!context) {
-    throw new Error('useToast must be used within ToastProvider');
-  }
+  if (!context) throw new Error("useToast must be used within ToastProvider");
   return context;
-};
+}

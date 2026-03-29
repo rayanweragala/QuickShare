@@ -15,6 +15,8 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 @Service
@@ -71,6 +73,11 @@ public class CloudflareR2Service {
      */
     public String generatePresignedUploadUrl(String key, String contentType) {
         try {
+            String decoded = URLDecoder.decode(key, StandardCharsets.UTF_8);
+            if (decoded.contains("..") || decoded.contains("/") || decoded.contains("\\")) {
+                throw new IllegalArgumentException("Invalid file key");
+            }
+
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(bucketName)
                     .key(key)

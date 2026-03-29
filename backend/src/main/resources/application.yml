@@ -108,3 +108,6 @@ logging:
   level:
     root: info
     com.quickshare.backend: DEBUG
+
+app:
+  base-url: https://localshare-15ui.onrender.com

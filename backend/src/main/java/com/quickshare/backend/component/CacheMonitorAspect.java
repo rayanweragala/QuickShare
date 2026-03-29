@@ -18,7 +18,7 @@ public class CacheMonitorAspect {
     @Autowired
     private CacheManager cacheManager;
 
-    @Around("@annotation(cacheable)")
+    @Around("within(com.quickshare.backend..*) && @annotation(cacheable)")
     public Object monitorCacheable(ProceedingJoinPoint joinPoint, Cacheable cacheable) throws Throwable {
         String cacheName = cacheable.value()[0];
         String methodName = joinPoint.getSignature().getName();

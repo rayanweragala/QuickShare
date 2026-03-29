@@ -1,5 +1,21 @@
 import { logger } from "../utils/logger";
 
+let _memStore = {};
+const safeGet = (key) => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return _memStore[key] ?? null;
+  }
+};
+const safeSet = (key, val) => {
+  try {
+    localStorage.setItem(key, val);
+  } catch {
+    _memStore[key] = val;
+  }
+};
+
 class StatsService {
   constructor() {
     this.stats = this.loadStats();
@@ -7,7 +23,7 @@ class StatsService {
 
   loadStats() {
     try {
-      const stored = localStorage.getItem("QuickShare_stats");
+      const stored = safeGet("QuickShare_stats");
       if (stored) {
         const parsed = JSON.parse(stored);
         if (!parsed.dailyStats) {
@@ -30,13 +46,13 @@ class StatsService {
 
   saveStats() {
     try {
-      localStorage.setItem("QuickShare_stats", JSON.stringify(this.stats));
+      safeSet("QuickShare_stats", JSON.stringify(this.stats));
     } catch (error) {
       logger.error("failed to save stats", error);
     }
   }
 
-  recordFileTransfer(fileName, fileSize, sessionType) {
+  recordFileTransfer(fileName, fileSize) {
     const today = new Date().toISOString().split("T")[0];
 
     if (!this.stats.dailyStats) {
@@ -70,7 +86,7 @@ class StatsService {
     return this.stats;
   }
 
-  recordSession(sessionType) {
+  recordSession() {
     const today = new Date().toISOString().split("T")[0];
 
     if (!this.stats.dailyStats) {
